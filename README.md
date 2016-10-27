@@ -15,3 +15,4 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Preparing data for SQLite](https://github.com/dataquestio/solutions/blob/master/Mission215Solutions.ipynb)
 - [Guided Project: Creating relations in SQLite](https://github.com/dataquestio/solutions/blob/master/Mission216Solutions.ipynb)
 - [Guided Project: Analyzing NYC High School Data](https://github.com/dataquestio/solutions/blob/master/Mission217Solutions.ipynb)
+- [Guided Project: Visualizing Earnings Based On College Majors](https://github.com/dataquestio/solutions/blob/master/Mission146Solutions.ipynb)
