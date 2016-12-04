@@ -16,3 +16,4 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Creating relations in SQLite](https://github.com/dataquestio/solutions/blob/master/Mission216Solutions.ipynb)
 - [Guided Project: Analyzing NYC High School Data](https://github.com/dataquestio/solutions/blob/master/Mission217Solutions.ipynb)
 - [Guided Project: Visualizing Earnings Based On College Majors](https://github.com/dataquestio/solutions/blob/master/Mission146Solutions.ipynb)
+- [Guided Project: Exploring Gun Deaths in the US](https://github.com/dataquestio/solutions/blob/master/Mission218Solutions.ipynb)
