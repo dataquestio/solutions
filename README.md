@@ -4,6 +4,7 @@ This repository is a series of notebooks that show solutions for the [projects](
 
 Of course, there are always going to be multiple ways to solve any one problem, so these notebooks just show one possible solution.
 
+- [Guided Project: Explore U.S. Births](https://github.com/dataquestio/solutions/blob/master/Mission9Solutions.ipynb)
 - [Guided Project: Customizing Data Visualizations](https://github.com/dataquestio/solutions/blob/master/Mission103Solutions.ipynb)
 - [Guided Project: Star Wars survey](https://github.com/dataquestio/solutions/blob/master/Mission201Solution.ipynb)
 - [Guided Project: Police killings](https://github.com/dataquestio/solutions/blob/master/Mission202Solution.ipynb)
