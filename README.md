@@ -20,3 +20,5 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Visualizing Earnings Based On College Majors](https://github.com/dataquestio/solutions/blob/master/Mission146Solutions.ipynb)
 - [Guided Project: Exploring Gun Deaths in the US](https://github.com/dataquestio/solutions/blob/master/Mission218Solution.ipynb)
 - [Guided Project: Analyzing Thanksgiving Dinner](https://github.com/dataquestio/solutions/blob/master/Mission219Solution.ipynb)
+- [Guided Project: Analyzing Wikipedia Pages](https://github.com/dataquestio/solutions/blob/master/Mission227Solutions.ipynb)
+
