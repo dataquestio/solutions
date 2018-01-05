@@ -22,3 +22,6 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Analyzing Thanksgiving Dinner](https://github.com/dataquestio/solutions/blob/master/Mission219Solution.ipynb)
 - [Guided Project: Analyzing Wikipedia Pages](https://github.com/dataquestio/solutions/blob/master/Mission227Solutions.ipynb)
 - [Guided Project: Analyzing Stock Prices](https://github.com/dataquestio/solutions/blob/master/Mission177Solutions.ipynb)
+- [Guided Project: Creating A Kaggle Workflow](https://github.com/dataquestio/solutions/blob/master/Mission188Solution.ipynb)
+- [Guided Project: Analyzing Startup Fundraising Deals from Crunchbase](https://github.com/dataquestio/solutions/blob/master/Mission167Solutions.ipynb)
+- [Guided Project: Predicting House Sale Prices](https://github.com/dataquestio/solutions/blob/master/Mission240Solutions.ipynb)
