@@ -26,3 +26,4 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Analyzing Startup Fundraising Deals from Crunchbase](https://github.com/dataquestio/solutions/blob/master/Mission167Solutions.ipynb)
 - [Guided Project: Predicting House Sale Prices](https://github.com/dataquestio/solutions/blob/master/Mission240Solutions.ipynb)
 - [Guided Project: Answering Business Questions using SQL](https://github.com/dataquestio/solutions/blob/master/Mission191Solutions.ipynb)
+- [Guided Project: Designing and Creating a Database](https://github.com/dataquestio/solutions/blob/master/Mission193Solutions.ipynb)
