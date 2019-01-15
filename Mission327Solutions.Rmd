@@ -1,0 +1,133 @@
+---
+title: "Solutions for Guided Project: Exploring NYC Schools Survey Data"
+author: "Rose Martin"
+data: "January 22, 2019"
+output: html_document
+---
+
+**Here are suggested solutions to the questions in the Data Cleaning With R Guided Project: Exploring NYC Schools Survey Data.**
+
+Load the packages you'll need for your analysis
+
+```{r}
+library(readr)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+```
+
+Import the data into R.
+
+```{r}
+combined <- read_csv("combined.csv") 
+survey <- read_tsv("survey_all.txt")
+survey_d75 <- read_tsv("survey_d75.txt")
+```
+
+Filter `survey` data to include only high schools and select columns needed for analysis based on the data dictionary.
+
+```{r}
+survey_select <- survey %>%
+  filter(schooltype == "High School") %>%
+  select(dbn:aca_tot_11)
+```
+
+Select columns needed for analysis from `survey_d75`.
+
+```{r}
+survey_d75_select <- survey_d75 %>%       
+  select(dbn:aca_tot_11)
+```
+
+Combine `survey` and `survey_d75` data frames.
+
+```{r}
+survey_total <- survey_select %>% 
+  bind_rows(survey_d75_select)
+```
+
+Rename `survey_total` variable `dbn` to `DBN` so can use as key to join with the `combined` data frame.
+
+```{r}
+survey_total <- survey_total %>%
+  rename(DBN = dbn)
+```
+
+Join the `combined` and `survey_total` data frames. Use `left_join()` to keep only survey data that correspond to schools for which we have data in `combined`.
+
+```{r}
+combined_survey <- combined %>%
+  left_join(survey_total, by = "DBN")
+```
+
+Create a correlation matrix to look for interesting relationships between pairs of variables in `combined_survey` and convert it to a tibble so it's easier to work with using tidyverse tools.
+
+```{r}
+cor_mat <- combined_survey %>%    ## interesting relationshipsS
+  select(avg_sat_score, saf_p_11:aca_tot_11) %>%
+  cor(use = "pairwise.complete.obs")
+
+cor_tib <- cor_mat %>%
+  as_tibble(rownames = "variable")
+```
+
+Look for correlations of other variables with `avg_sat_score` that are greater than 0.25 or less than -0.25 (strong correlations).
+
+```{r}
+strong_cors <- cor_tib %>%
+  select(variable, avg_sat_score) %>%
+  filter(avg_sat_score > 0.25 | avg_sat_score < -0.25)  
+```
+
+Make scatter plots of those variables with `avg_sat_score` to examine relationships more closely.
+
+```{r}
+create_scatter <- function(x, y) {     
+  ggplot(data = combined_survey) + 
+    aes_string(x = x, y = y) +
+    geom_point(alpha = 0.3) +
+    theme(panel.background = element_rect(fill = "white"))
+}
+
+x_var <- strong_cors$variable[2:5]
+y_var <- "avg_sat_score"
+  
+map2(x_var, y_var, create_scatter)
+```
+
+Reshape the data so that you can investigate differences in student, parent, and teacher responses to survey questions.
+
+```{r}
+combined_survey_gather <- combined_survey %>%                         
+  gather(key = "survey_question", value = score, saf_p_11:aca_tot_11)
+```
+
+Use `str_sub()` to create new variables, `response_type` and `question`, from the `survey_question` variable.
+
+```{r}
+combined_survey_gather <- combined_survey_gather %>%
+  mutate(response_type = str_sub(survey_question, 4, 6)) %>%   
+  mutate(question = str_sub(survey_question, 1, 3))
+```
+
+Replace `response_type` variable values with names "parent", "teacher", "student", "total" using `if_else()` function.
+
+```{r}
+combined_survey_gather <- combined_survey_gather %>%
+  mutate(response_type = ifelse(response_type  == "_p_", "parent", 
+                                ifelse(response_type == "_t_", "teacher",
+                                       ifelse(response_type == "_s_", "student", 
+                                              ifelse(response_type == "_to", "total", "NA")))))
+```
+
+Make a boxplot to see if there appear to be differences in how the three groups of responders (parents, students, and teachers) answered the four questions. 
+
+```{r}
+combined_survey_gather %>%
+  filter(response_type != "total") %>%
+  ggplot() +
+  aes(x = question, y = score, fill = response_type) +
+  geom_boxplot()
+```
