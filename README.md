@@ -28,3 +28,4 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Answering Business Questions using SQL](https://github.com/dataquestio/solutions/blob/master/Mission191Solutions.ipynb)
 - [Guided Project: Designing and Creating a Database](https://github.com/dataquestio/solutions/blob/master/Mission193Solutions.ipynb)
 - [Guided Project: Investigating Fandango's Movie Rating System](https://github.com/dataquestio/solutions/blob/master/Mission288Solutions.ipynb)
+- [Guided Project: Guided Project: NYC Schools Perceptions](https://github.com/dataquestio/solutions/blob/master/Mission327Solutions.Rmd)
