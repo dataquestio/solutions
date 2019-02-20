@@ -30,3 +30,4 @@ Of course, there are always going to be multiple ways to solve any one problem, 
 - [Guided Project: Investigating Fandango's Movie Rating System](https://github.com/dataquestio/solutions/blob/master/Mission288Solutions.ipynb)
 - [Guided Project: Forest Fires Data](https://github.com/dataquestio/solutions/blob/master/Mission277Solutions.Rmd)
 - [Guided Project: NYC Schools Perceptions](https://github.com/dataquestio/solutions/blob/master/Mission327Solutions.Rmd)
+- [Guided Project: Clean and Analyze Employee Exit Surveys](https://github.com/dataquestio/solutions/blob/master/Mission348Solutions.ipynb)
