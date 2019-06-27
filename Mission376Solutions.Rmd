@@ -1,0 +1,763 @@
+---
+title: "Mission 376 Solutions"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(RSQLite)
+library(DBI)
+```
+
+# Getting to Know the Data
+
+```{r}
+# R has trouble guessing some column types, so we explicitly tell it 
+# the types of the problem columns
+log <- read_csv("game_log.csv", 
+                col_types = cols(.default = "c",
+                                 v_league = "c", h_league = "c",
+                                 `3b_umpire_id` = "c", `3b_umpire_name` = "c",
+                                 `2b_umpire_id` = "c", `2b_umpire_name` = "c",
+                                 `lf_umpire_id` = "c", `lf_umpire_name` = "c",
+                                 `rf_umpire_id` = "c", `rf_umpire_name` = "c",
+                                 completion = "c", winning_rbi_batter_id = "c",
+                                 winning_rbi_batter_id_name = "c", protest = "c",
+                                 v_first_catcher_interference = "c", 
+                                 h_first_catcher_interference = "c"))
+head(log)
+```
+
+```{r}
+dim(log)
+```
+
+It looks like the game log has a record of over 170,000 games. It looks like these games are chronologically ordered and occur between 1871 and 2016.
+
+For each game we have:
+
+* general information on the game
+* team level stats for each team
+* a list of players from each team, numbered, with their defensive positions
+* the umpires that officiated the game
+* some 'awards', like winning and losing pitcher
+
+We have a game_log_fields.txt file that tell us that the player number corresponds with the order in which they batted.
+
+It's worth noting that there is no natural primary key column for this table.
+
+```{r}
+person <- read_csv("person_codes.csv")
+head(person)
+```
+
+```{r}
+dim(person)
+```
+
+This seems to be a list of people with IDs. The IDs look like they match up with those used in the game log. There are debut dates, for players, managers, coaches and umpires. We can see that some people might have been one or more of these roles.
+
+It also looks like coaches and managers are two different things in baseball. After some research, managers are what would be called a 'coach' or 'head coach' in other sports, and coaches are more specialized, like base coaches. It also seems like coaches aren't recorded in the game log.
+
+```{r}
+park <- read_csv("park_codes.csv")
+head(park)
+```
+
+```{r}
+dim(park)
+```
+
+
+This seems to be a list of all baseball parks. There are IDs which seem to match with the game log, as well as names, nicknames, city and league.
+
+```{r}
+team <- read_csv("team_codes.csv")
+head(team)
+```
+
+```{r}
+dim(team)
+```
+
+This seems to be a list of all teams, with team_ids which seem to match the game log. 
+
+## Defensive Positions
+
+In the game log, each player has a defensive position listed, which seems to be a number between 1-10. Doing some research around this, I found this [article] (http://probaseballinsider.com/baseball-instruction/baseball-basics/baseball-basics-positions/) which gives us a list of names for each numbered position:
+
+* Pitcher
+* Catcher
+* 1st Base
+* 2nd Base
+* 3rd Base
+* Shortstop
+* Left Field
+* Center Field
+* Right Field
+
+The 10th position isn't included, it may be a way of describing a designated hitter that does not field. I can find a retrosheet page that indicates that position 0 is used for this, but we don't have any position 0 in our data. I have chosen to make this an 'Unknown Position' so I'm not including data based on a hunch.
+
+## Leagues
+
+Wikipedia tells us there are currently two leagues - the American (AL) and National (NL). Upon investigation of the data, we see that there are actually 4 more. After some googling, we come up with:
+
+* NL: National League
+* AL: American League
+* AA: [American Association](https://en.wikipedia.org/wiki/American_Association_%2819th_century%29)
+* FL: [Federal League](https://en.wikipedia.org/wiki/Federal_League)
+* PL: [Players League](https://en.wikipedia.org/wiki/Players%27_League)
+* UA: [Union Association](https://en.wikipedia.org/wiki/Union_Association)
+
+It also looks like we have about 1000 games where the home team doesn't have a value for league.
+
+# Importing Data Into SQLite
+
+```{r}
+conn <- dbConnect(SQLite(), "mlb.db")
+
+dbWriteTable(conn = conn, name = "game_log", 
+             value = log, row.names = FALSE, header = TRUE)
+
+dbWriteTable(conn = conn, name = "person_codes", 
+             value = person, row.names = FALSE, header = TRUE)
+
+dbWriteTable(conn = conn, name = "team_codes", 
+             value = team, row.names = FALSE, header = TRUE)
+
+dbWriteTable(conn = conn, name = "park_codes", 
+             value = park, row.names = FALSE, header = TRUE)
+
+# Confirm that all of the tables are in 
+dbListTables(conn)
+```
+
+```{r}
+# Create the new column within game_log
+alter_game_log_command <- "
+  ALTER TABLE game_log
+  ADD COLUMN game_id TEXT;
+"
+
+dbExecute(conn, alter_game_log_command)
+
+# Use string concatenation to update this new column
+update_game_log_command <- "
+  UPDATE game_log
+  SET game_id = date || h_name || number_of_game
+  /* WHERE prevents this if it has already been done */
+  WHERE game_id IS NULL;
+"
+
+dbExecute(conn, update_game_log_command)
+
+# Make sure that your queries worked
+check_query_1 <- "
+  SELECT
+      game_id,
+      date,
+      h_name,
+      number_of_game
+  FROM game_log
+  LIMIT 5;
+"
+
+check <- dbGetQuery(conn, check_query_1)
+head(check)
+```
+
+# Looking for Normalization Opportunities
+
+The following are opportunities for normalization of our data:
+
+* In person_codes, all the debut dates will be able to be reproduced using game log data.
+* In team_codes, the start, end and sequence columns will be able to be reproduced using game log data.
+* In park_codes, the start and end years will be able to be reproduced using game log data. While technically the state is an attribute of the city, we might not want to have a an incomplete city/state table so we will leave this in.
+* There are lots of places in game log where we have a player ID followed by the players name. We will be able to remove this and use the name data in person_codes
+* In game_log, all offensive and defensive stats are repeated for the home team and the visiting team. We could break these out and have a table that lists each game twice, one for each team, and cut out this column repetition.
+* Similarly, in game_log, we have a listing for 9 players on each team with their positions - we can remove these and have one table that tracks player appearances and their positions.
+* We can do a similar thing with the umpires from game_log, instead of listing all four positions as columns, we can put the umpires either in their own table or make one table for players, umpires and managers.
+* We have several awards in game_log like winning pitcher and losing pitcher. We can either break these out into their own table, have a table for awards, or combine the awards in with general appearances like the players and umpires.
+
+# Creating Tables Without Foreign Keys
+
+```{r}
+create_person_command <- "
+  CREATE TABLE IF NOT EXISTS person (
+      person_id TEXT PRIMARY KEY,
+      first_name TEXT,
+      last_name TEXT
+  );
+"
+dbExecute(conn, create_person_command)
+
+insert_to_person <- "
+  INSERT OR IGNORE INTO person
+  SELECT
+      id,
+      first,
+      last
+  FROM person_codes;
+"
+
+dbExecute(conn, insert_to_person)
+
+check_query_2 <- "SELECT * FROM person LIMIT 5;"
+
+check <- dbGetQuery(conn, check_query_2)
+head(check)
+```
+
+```{r}
+create_park_command <- "
+  CREATE TABLE IF NOT EXISTS park (
+      park_id TEXT PRIMARY KEY,
+      name TEXT,
+      nickname TEXT,
+      city TEXT,
+      state TEXT,
+      notes TEXT
+  );
+"
+
+dbExecute(conn, create_park_command)
+
+insert_to_park <- "
+  INSERT OR IGNORE INTO park
+  SELECT
+      park_id,
+      name,
+      aka,
+      city,
+      state,
+      notes
+  FROM park_codes;
+"
+
+dbExecute(conn, insert_to_park)
+
+check_query_3 <- "SELECT * FROM park LIMIT 5;"
+
+check_3 <- dbGetQuery(conn, check_query_3)
+```
+
+```{r}
+create_league_command <- "
+  CREATE TABLE IF NOT EXISTS league (
+      league_id TEXT PRIMARY KEY,
+      name TEXT
+  );
+"
+
+dbExecute(conn, create_league_command)
+
+insert_to_league <- '
+  INSERT OR IGNORE INTO league
+  VALUES
+      ("NL", "National League"),
+      ("AL", "American League"),
+      ("AA", "American Association"),
+      ("FL", "Federal League"),
+      ("PL", "Players League"),
+      ("UA", "Union Association")
+  ;
+'
+
+dbExecute(conn, insert_to_league)
+
+check_query_4 <- "SELECT * FROM league"
+
+check <- dbGetQuery(conn, check_query_4)
+head(check)
+```
+
+```{r}
+appearance_drop_precaution <- "DROP TABLE IF EXISTS appearance_type;"
+dbExecute(conn, appearance_drop_precaution)
+
+appearance_type = read_csv('appearance_type.csv')
+dbWriteTable(conn = conn, name = "appearance_type", 
+             value = appearance_type,
+             row.names = FALSE, header = TRUE)
+
+check_query_5 <- "SELECT * FROM appearance_type;"
+check <- dbGetQuery(conn, check_query_5)
+head(check)
+```
+
+# Adding The Team and Game Tables
+
+```{r}
+create_team_command <- "
+  CREATE TABLE IF NOT EXISTS team (
+      team_id TEXT PRIMARY KEY,
+      league_id TEXT,
+      city TEXT,
+      nickname TEXT,
+      franch_id TEXT,
+      FOREIGN KEY (league_id) REFERENCES league(league_id)
+  );
+"
+
+dbExecute(conn, create_team_command)
+
+insert_to_team <- "
+  INSERT OR IGNORE INTO team
+  SELECT
+      team_id,
+      league,
+      city,
+      nickname,
+      franch_id
+  FROM team_codes;
+"
+
+dbExecute(conn, insert_to_team)
+
+check_query_6 <- "SELECT * FROM team LIMIT 5;"
+
+check <- dbGetQuery(conn, check_query_6)
+head(check)
+```
+
+```{r}
+create_game_command <- "
+  CREATE TABLE IF NOT EXISTS game (
+      game_id TEXT PRIMARY KEY,
+      date TEXT,
+      number_of_game INTEGER,
+      park_id TEXT,
+      length_outs INTEGER,
+      day BOOLEAN,
+      completion TEXT,
+      forefeit TEXT,
+      protest TEXT,
+      attendance INTEGER,
+      legnth_minutes INTEGER,
+      additional_info TEXT,
+      acquisition_info TEXT,
+      FOREIGN KEY (park_id) REFERENCES park(park_id)
+  );
+"
+
+dbExecute(conn, create_game_command)
+
+insert_to_game <- '
+  INSERT OR IGNORE INTO game
+  SELECT
+      game_id,
+      date,
+      number_of_game,
+      park_id,
+      length_outs,
+      CASE
+          WHEN day_night = "D" THEN 1
+          WHEN day_night = "N" THEN 0
+          ELSE NULL
+          END
+          AS day,
+      completion,
+      forefeit,
+      protest,
+      attendance,
+      length_minutes,
+      additional_info,
+      acquisition_info
+  FROM game_log;
+'
+
+dbExecute(conn, insert_to_game)
+
+check_query_7 <- "SELECT * FROM game LIMIT 5;"
+
+check <- dbGetQuery(conn, check_query_7)
+head(check)
+```
+
+# Adding the Team Appearance Table
+
+```{r}
+create_team_appearance_command <- "
+  CREATE TABLE IF NOT EXISTS team_appearance (
+      team_id TEXT,
+      game_id TEXT,
+      home BOOLEAN,
+      league_id TEXT,
+      score INTEGER,
+      line_score TEXT,
+      at_bats INTEGER,
+      hits INTEGER,
+      doubles INTEGER,
+      triples INTEGER,
+      homeruns INTEGER,
+      rbi INTEGER,
+      sacrifice_hits INTEGER,
+      sacrifice_flies INTEGER,
+      hit_by_pitch INTEGER,
+      walks INTEGER,
+      intentional_walks INTEGER,
+      strikeouts INTEGER,
+      stolen_bases INTEGER,
+      caught_stealing INTEGER,
+      grounded_into_double INTEGER,
+      first_catcher_interference INTEGER,
+      left_on_base INTEGER,
+      pitchers_used INTEGER,
+      individual_earned_runs INTEGER,
+      team_earned_runs INTEGER,
+      wild_pitches INTEGER,
+      balks INTEGER,
+      putouts INTEGER,
+      assists INTEGER,
+      errors INTEGER,
+      passed_balls INTEGER,
+      double_plays INTEGER,
+      triple_plays INTEGER,
+      PRIMARY KEY (team_id, game_id),
+      FOREIGN KEY (team_id) REFERENCES team(team_id),
+      FOREIGN KEY (game_id) REFERENCES game(game_id),
+      FOREIGN KEY (team_id) REFERENCES team(team_id)
+  );
+"
+
+dbExecute(conn, create_team_appearance_command)
+
+insert_to_team_appearance <- "
+  INSERT OR IGNORE INTO team_appearance
+      SELECT
+          h_name,
+          game_id,
+          1 AS home,
+          h_league,
+          h_score,
+          h_line_score,
+          h_at_bats,
+          h_hits,
+          h_doubles,
+          h_triples,
+          h_homeruns,
+          h_rbi,
+          h_sacrifice_hits,
+          h_sacrifice_flies,
+          h_hit_by_pitch,
+          h_walks,
+          h_intentional_walks,
+          h_strikeouts,
+          h_stolen_bases,
+          h_caught_stealing,
+          h_grounded_into_double,
+          h_first_catcher_interference,
+          h_left_on_base,
+          h_pitchers_used,
+          h_individual_earned_runs,
+          h_team_earned_runs,
+          h_wild_pitches,
+          h_balks,
+          h_putouts,
+          h_assists,
+          h_errors,
+          h_passed_balls,
+          h_double_plays,
+          h_triple_plays
+      FROM game_log
+  
+  UNION
+  
+      SELECT    
+          v_name,
+          game_id,
+          0 AS home,
+          v_league,
+          v_score,
+          v_line_score,
+          v_at_bats,
+          v_hits,
+          v_doubles,
+          v_triples,
+          v_homeruns,
+          v_rbi,
+          v_sacrifice_hits,
+          v_sacrifice_flies,
+          v_hit_by_pitch,
+          v_walks,
+          v_intentional_walks,
+          v_strikeouts,
+          v_stolen_bases,
+          v_caught_stealing,
+          v_grounded_into_double,
+          v_first_catcher_interference,
+          v_left_on_base,
+          v_pitchers_used,
+          v_individual_earned_runs,
+          v_team_earned_runs,
+          v_wild_pitches,
+          v_balks,
+          v_putouts,
+          v_assists,
+          v_errors,
+          v_passed_balls,
+          v_double_plays,
+          v_triple_plays
+      from game_log;
+"
+
+dbExecute(conn, insert_to_team_appearance)
+
+check_query_8 <- "
+  SELECT * FROM team_appearance
+  WHERE game_id = (
+                   SELECT MIN(game_id) from game
+                  )
+     OR game_id = (
+                   SELECT MAX(game_id) from game
+                  )
+  ORDER By game_id, home;
+"
+
+check <- dbGetQuery(conn, check_query_8)
+head(check)
+```
+
+# Adding the Person Appearance Table
+
+```{r}
+drop_person_appearance_precaution <- "DROP TABLE IF EXISTS person_appearance"
+
+dbExecute(conn, drop_person_appearance_precaution)
+
+create_person_appearance_command <- "
+  CREATE TABLE person_appearance (
+      appearance_id INTEGER PRIMARY KEY,
+      person_id TEXT,
+      team_id TEXT,
+      game_id TEXT,
+      appearance_type_id,
+      FOREIGN KEY (person_id) REFERENCES person(person_id),
+      FOREIGN KEY (team_id) REFERENCES team(team_id),
+      FOREIGN KEY (game_id) REFERENCES game(game_id),
+      FOREIGN KEY (appearance_type_id) REFERENCES appearance_type(appearance_type_id)
+  );
+"
+
+dbExecute(conn, create_person_appearance_command)
+
+insert_to_person_appearance <- '
+  INSERT OR IGNORE INTO person_appearance (
+      game_id,
+      team_id,
+      person_id,
+      appearance_type_id
+  ) 
+      SELECT
+          game_id,
+          NULL,
+          hp_umpire_id,
+          "UHP"
+      FROM game_log
+      WHERE hp_umpire_id IS NOT NULL    
+  
+  UNION
+  
+      SELECT
+          game_id,
+          NULL,
+          [1b_umpire_id],
+          "U1B"
+      FROM game_log
+      WHERE "1b_umpire_id" IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          NULL,
+          [2b_umpire_id],
+          "U2B"
+      FROM game_log
+      WHERE [2b_umpire_id] IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          NULL,
+          [3b_umpire_id],
+          "U3B"
+      FROM game_log
+      WHERE [3b_umpire_id] IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          NULL,
+          lf_umpire_id,
+          "ULF"
+      FROM game_log
+      WHERE lf_umpire_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          NULL,
+          rf_umpire_id,
+          "URF"
+      FROM game_log
+      WHERE rf_umpire_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          v_name,
+          v_manager_id,
+          "MM"
+      FROM game_log
+      WHERE v_manager_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          h_name,
+          h_manager_id,
+          "MM"
+      FROM game_log
+      WHERE h_manager_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          CASE
+              WHEN h_score > v_score THEN h_name
+              ELSE v_name
+              END,
+          winning_pitcher_id,
+          "AWP"
+      FROM game_log
+      WHERE winning_pitcher_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          CASE
+              WHEN h_score < v_score THEN h_name
+              ELSE v_name
+              END,
+          losing_pitcher_id,
+          "ALP"
+      FROM game_log
+      WHERE losing_pitcher_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          CASE
+              WHEN h_score > v_score THEN h_name
+              ELSE v_name
+              END,
+          saving_pitcher_id,
+          "ASP"
+      FROM game_log
+      WHERE saving_pitcher_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          CASE
+              WHEN h_score > v_score THEN h_name
+              ELSE v_name
+              END,
+          winning_rbi_batter_id,
+          "AWB"
+      FROM game_log
+      WHERE winning_rbi_batter_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          v_name,
+          v_starting_pitcher_id,
+          "PSP"
+      FROM game_log
+      WHERE v_starting_pitcher_id IS NOT NULL
+  
+  UNION
+  
+      SELECT
+          game_id,
+          h_name,
+          h_starting_pitcher_id,
+          "PSP"
+      FROM game_log
+      WHERE h_starting_pitcher_id IS NOT NULL;
+'
+
+dbExecute(conn, insert_to_person_appearance)
+```
+
+```{r}
+for (letter in c("h", "v")) {
+  for (num in 1:9) {
+    template <- '
+      INSERT INTO person_appearance (
+          game_id,
+          team_id,
+          person_id,
+          appearance_type_id
+      ) 
+          SELECT
+              game_id,
+              %s_name,
+              %s_player_%f_id,
+              "O%f"
+          FROM game_log
+          WHERE %s_player_%f_id IS NOT NULL
+      
+      UNION
+      
+          SELECT
+              game_id,
+              %s_name,
+              %s_player_%f_id,
+              "D" || CAST(%s_player_%f_def_pos AS INT)
+          FROM game_log
+          WHERE %s_player_%f_id IS NOT NULL;
+    '
+    # replace all of the %s and %f with the correct letter number
+    template <- gsub("%s", letter, template, fixed = TRUE)
+    template <- gsub("%f", num, template, fixed = TRUE)
+    
+    dbExecute(conn, template)
+  }
+}
+```
+
+This particular solution incorporates a bit of regular expression and some nested for loops. If you need to review for-loops again, refer to our older mission on [control structures](https://www.dataquest.io/m/338-working-with-control-structures/). Regular expression is a technique where we look for specific patterns in a character vector and replace it with another pattern. In this case, we need to replace all the instances of "%s" and "%f" with a new letter and number, respectively. In particular, the `gsub()` function replaces *all* instances of "%s" and "%f" respectively. With each run of the nested loop, we get a properly formatted query that fulfills our needs. Using loops is one potential solution, but it's also possible to vectorize this work and recreate what we need.
+
+# Removing the Original Tables
+
+```{r}
+# Check the current status of the db file
+dbListTables(conn)
+
+# Iterate through each of the tables
+tables <- c("game_log", "park_codes",
+            "team_codes", "person_codes")
+
+for (t in tables) {
+  drop_command = sprintf("DROP TABLE %s", t)
+  dbExecute(conn, drop_command)
+}
+
+# Make sure that everything is gone
+dbListTables(conn)
+
+dbDisconnect(conn)
+```

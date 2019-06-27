@@ -1,0 +1,255 @@
+---
+title: "Mission 374 Solutions"
+output: html_document
+---
+
+# Creating Helper Functions
+
+```{r}
+library(RSQLite)
+library(DBI)
+
+db <- 'chinook.db'
+
+run_query <- function(q) {
+  conn <- dbConnect(SQLite(), db)
+  result <- dbGetQuery(conn, q)
+  dbDisconnect(conn)
+  return(result)
+}
+
+show_tables <- function() {
+  q = "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view')"
+  return(run_query(q))
+}
+
+show_tables()
+```
+
+# Selecting New Albums to Purchase
+
+```{r}
+albums_to_purchase = '
+WITH usa_tracks_sold AS
+   (
+    SELECT il.* FROM invoice_line il
+    INNER JOIN invoice i on il.invoice_id = i.invoice_id
+    INNER JOIN customer c on i.customer_id = c.customer_id
+    WHERE c.country = "USA"
+   )
+SELECT
+    g.name genre,
+    count(uts.invoice_line_id) tracks_sold,
+    cast(count(uts.invoice_line_id) AS FLOAT) / (
+        SELECT COUNT(*) from usa_tracks_sold
+    ) percentage_sold
+FROM usa_tracks_sold uts
+INNER JOIN track t on t.track_id = uts.track_id
+INNER JOIN genre g on g.genre_id = t.genre_id
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;
+'
+
+run_query(albums_to_purchase)
+```
+
+```{r}
+library(ggplot2)
+genre_sales = run_query(albums_to_purchase)
+ggplot(data = genre_sales, aes(x = reorder(genre, -percentage_sold), 
+                               y = percentage_sold)) +
+  geom_bar(stat = "identity")
+```
+
+Among the genres represented in our list of 4 albums, punk, blues and pop are the highest rated. Therefore, we should recommend:
+
+- Red Tone (Punk)
+- Slim Jim Bites (Blues)
+- Meteor and the Girls (Pop)
+
+By far though, rock makes up the majority of the sales. To better capture sales in the USA, we might want to ask the record label if they have any up-and-coming rock bands.
+
+# Analyzing Employee Sales Performance
+
+```{r}
+employee_sales_performance = '
+WITH customer_support_rep_sales AS
+    (
+     SELECT
+         i.customer_id,
+         c.support_rep_id,
+         SUM(i.total) total
+     FROM invoice i
+     INNER JOIN customer c ON i.customer_id = c.customer_id
+     GROUP BY 1,2
+    )
+
+SELECT
+    e.first_name || " " || e.last_name employee,
+    e.hire_date,
+    SUM(csrs.total) total_sales
+FROM customer_support_rep_sales csrs
+INNER JOIN employee e ON e.employee_id = csrs.support_rep_id
+GROUP BY 1;
+'
+
+run_query(employee_sales_performance)
+```
+
+```{r}
+employee_sales = run_query(employee_sales_performance)
+ggplot(data = employee_sales, aes(x = reorder(employee, -total_sales), 
+                               y = total_sales)) +
+  geom_bar(stat = "identity")
+```
+
+Jane Peacock has the highest amount of sales, but she also has been at the company the longest. If we really want to hone in on employee efficiency, we might want to standardize sales by the number of days or hours worked. 
+
+# Visualizing Sales by Country
+
+```{r}
+sales_by_country = '
+WITH country_or_other AS
+    (
+     SELECT
+       CASE
+           WHEN (
+                 SELECT count(*)
+                 FROM customer
+                 where country = c.country
+                ) = 1 THEN "Other"
+           ELSE c.country
+       END AS country,
+       c.customer_id,
+       il.*
+     FROM invoice_line il
+     INNER JOIN invoice i ON i.invoice_id = il.invoice_id
+     INNER JOIN customer c ON c.customer_id = i.customer_id
+    )
+SELECT
+    country,
+    customers,
+    total_sales,
+    average_order,
+    customer_lifetime_value
+FROM
+    (
+    SELECT
+        country,
+        count(distinct customer_id) customers,
+        SUM(unit_price) total_sales,
+        SUM(unit_price) / count(distinct customer_id) customer_lifetime_value,
+        SUM(unit_price) / count(distinct invoice_id) average_order,
+        CASE
+            WHEN country = "Other" THEN 1
+            ELSE 0
+        END AS sort
+    FROM country_or_other
+    GROUP BY country
+    ORDER BY sort ASC, total_sales DESC
+    );
+'
+
+run_query(sales_by_country)
+```
+
+# Visualizing Sales by Country
+
+```{r}
+country_metrics = run_query(sales_by_country)
+
+ggplot(data = country_metrics, aes(x = reorder(country, -total_sales), 
+                                   y = total_sales, 
+                                   fill = country)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Total sales by country",
+    x = "Country",
+    y = "Total Sales"
+  ) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(data = country_metrics, aes(x = reorder(country, -customers), 
+                                   y = customers, 
+                                   fill = country)) +
+  geom_bar(stat = "identity") +
+  coord_polar("y") + 
+  labs(
+    title = "Number of customers by country",
+    x = "Country",
+    y = "Customers"
+  )
+
+ggplot(data = country_metrics, aes(x = reorder(country, -customer_lifetime_value), 
+                                   y = customer_lifetime_value, 
+                                   color = country)) +
+  geom_point(stat = "identity") +
+  labs(
+    title = "Customer lifetime value by country",
+    x = "Country",
+    y = "Customer Lifetime Value"
+  ) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Albums vs Individual Tracks
+
+```{r}
+albums_vs_tracks = '
+WITH invoice_first_track AS
+    (
+     SELECT
+         il.invoice_id invoice_id,
+         MIN(il.track_id) first_track_id
+     FROM invoice_line il
+     GROUP BY 1
+    )
+
+SELECT
+    album_purchase,
+    COUNT(invoice_id) number_of_invoices,
+    CAST(count(invoice_id) AS FLOAT) / (
+                                         SELECT COUNT(*) FROM invoice
+                                      ) percent
+FROM
+    (
+    SELECT
+        ifs.*,
+        CASE
+            WHEN
+                 (
+                  SELECT t.track_id FROM track t
+                  WHERE t.album_id = (
+                                      SELECT t2.album_id FROM track t2
+                                      WHERE t2.track_id = ifs.first_track_id
+                                     ) 
+
+                  EXCEPT 
+
+                  SELECT il2.track_id FROM invoice_line il2
+                  WHERE il2.invoice_id = ifs.invoice_id
+                 ) IS NULL
+             AND
+                 (
+                  SELECT il2.track_id FROM invoice_line il2
+                  WHERE il2.invoice_id = ifs.invoice_id
+
+                  EXCEPT 
+
+                  SELECT t.track_id FROM track t
+                  WHERE t.album_id = (
+                                      SELECT t2.album_id FROM track t2
+                                      WHERE t2.track_id = ifs.first_track_id
+                                     ) 
+                 ) IS NULL
+             THEN "yes"
+             ELSE "no"
+         END AS "album_purchase"
+     FROM invoice_first_track ifs
+    )
+GROUP BY album_purchase;
+'
+
+run_query(albums_vs_tracks)
+```
+
+Album purchases account for almost a quarter of the total sales, so it is inadvisable to change strategy to just purchase the most popular tracks.
