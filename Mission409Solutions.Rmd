@@ -1,0 +1,134 @@
+---
+title: "Mission 409 Solutions"
+output: html_document
+---
+
+# Developing A Mobile App For Alleviating Lottery Addiction
+
+This RMarkdown file is intended to lay out the logic of a mobile app designed for those addicted to the lottery. By showing a user how to calculate the incredibly small probabilities of winning the lottery, we hope that the app will help them better grasp that buying multiple lottery tickets will do little to help them win. Through this understanding, they will hopefully stop purchasing lottery tickets in an unhealthy manner.
+
+# Core Functions
+
+```{r}
+factorial <- function(n) {
+  product = 1
+  for (i in 1:n) {
+    product = product * i
+  }
+  return(product)
+}
+
+combinations <- function(n, k) {
+  numerator <- factorial(n)
+  denominator <- factorial(k) * factorial(n - k)
+  return(numerator / denominator)
+}
+```
+
+# One-Ticket Probability
+
+```{r}
+one_ticket_probability <- function(nums) {
+  total_combinations <- combinations(49, 6)
+  prob <- (1 / total_combinations) * 100
+  pretty_prob <- sprintf("%1.9f", prob)
+  s <- paste("You have a ", pretty_prob, "% chance of winning the big prize.", sep = "")
+  return(s)
+}
+
+one_ticket_probability(c(1, 2, 3, 4, 5, 6))
+```
+
+# Historical Data Check for Canada Lottery
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+lottery649 <- read_csv("649.csv")
+
+print(dim(lottery649))
+```
+
+```{r}
+head(lottery649, 3)
+```
+
+```{r}
+tail(lottery649, 3)
+```
+
+# Function for Historical Data Check
+
+```{r}
+historical_lots <- pmap(
+  list(
+    u <- lottery649$`NUMBER DRAWN 1`,
+    v <- lottery649$`NUMBER DRAWN 2`,
+    w <- lottery649$`NUMBER DRAWN 3`,
+    x <- lottery649$`NUMBER DRAWN 4`,
+    y <- lottery649$`NUMBER DRAWN 5`,
+    z <- lottery649$`NUMBER DRAWN 6`
+  ), 
+  .f <- function(u, v, w, x, y, z) { c(u, v, w, x, y, z) }
+  )
+```
+
+```{r}
+library(sets)
+check_historical_occurrences <- function(lot, historical_lots = historical_lots) {
+  historical_matches <- map(historical_lots, function(x) {setequal(x, lot)})
+  num_past_matches <- sum(unlist(historical_matches))
+  s <- paste("The combination you entered has appeared ", 
+             num_past_matches, 
+             " times in the past. ",
+             "Your chance of winning the big prize in the next drawing using this combination is 0.0000072%", sep = "")
+  return(s)
+}
+
+
+check_historical_occurrences(c(3, 12, 11, 14, 41, 43))
+```
+
+# Multi-ticket Probability
+
+```{r}
+multi_ticket_probability <- function(n) {
+  total_combinations <- combinations(49, 6)
+  prob <- (n / total_combinations) * 100
+  pretty_prob <- sprintf("%1.9f", prob)
+  s <- paste("you have a ", pretty_prob, "% chance of winning the big prize.", sep = "")
+  return(s)
+}
+```
+
+```{r}
+test_amounts <- c(1, 10, 100, 10000, 1000000, 6991908, 13983816)
+for (n in test_amounts) {
+  print(paste("For ", n, " tickets, ",  multi_ticket_probability(n), sep = ""))
+}
+```
+
+# Less Winning Numbers
+
+```{r}
+probability_less_6 <- function(n) {
+  
+    n_combinations_ticket = combinations(6, n)
+    n_combinations_remaining = combinations(49 - n, 6 - n)
+    successful_outcomes = n_combinations_ticket * n_combinations_remaining
+    n_combinations_total = combinations(49, 6)
+    
+    prob = (successful_outcomes / n_combinations_total) * 100
+    pretty_prob <- sprintf("%1.9f", prob)
+  
+  s <- paste("you have a ", pretty_prob, "% chance of winning the big prize.", sep = "")
+  return(s)
+}
+```
+
+```{r}
+winning_nums <- c(3, 4, 5)
+for (n in winning_nums) {
+  print(paste("For ", n, " tickets, ",  probability_less_6(n), sep = ""))
+}
+```
+
