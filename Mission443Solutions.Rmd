@@ -1,0 +1,208 @@
+---
+title: "Mission 443 Solutions"
+output: html_document
+---
+
+We would like to remind our students that our solutions represent just one of the many ways that a programmer might perform the analyses. This solution merely provides a platform for those who need a bit more guidance.
+
+```{r setup }
+library(tidyverse)
+```
+
+# Data Import
+
+```{r}
+jeopardy = read_csv("./data/jeopardy.csv")
+```
+
+```{r}
+head(jeopardy)
+```
+
+```{r}
+colnames(jeopardy)
+```
+
+```{r}
+# the clean_names() function from the janitor package would have been great here too
+colnames(jeopardy) = c("show_number", "air_date", "round", "category", "value", "question", "answer")
+```
+
+```{r}
+sapply(jeopardy, typeof)
+```
+
+# Fixing Data Types
+
+```{r}
+unique(jeopardy$value)
+```
+
+```{r}
+# Removing Nones, cleaning the text, and converting everything into numeric
+jeopardy = jeopardy %>% 
+  filter(value != "None") %>% 
+  mutate(
+    value = str_replace_all(value, "[$,]", ""),
+    value = as.numeric(value)
+  )
+```
+
+```{r}
+unique(jeopardy$value)
+```
+
+# Normalizing Text
+
+```{r}
+# The stringr library is automatically brought in when tidyverse is brought in
+
+# Notice how there is a space in the regular expression
+jeopardy = jeopardy %>% 
+  mutate(
+    question = tolower(question),
+    question = str_replace_all(question, "[^A-Za-z0-9 ]", ""),
+    answer = tolower(answer),
+    answer = str_replace_all(answer, "[^A-Za-z0-9 ]", ""),
+    category = tolower(category),
+    category = str_replace_all(category, "[^A-Za-z0-9 ]", "")
+  )
+```
+
+```{r}
+head(jeopardy)
+```
+
+# Making Dates More Accessible
+
+```{r}
+jeopardy = jeopardy %>% 
+  separate(., air_date, into = c("year", "month", "day"), sep = "-") %>% 
+  mutate(
+    year = as.numeric(year),
+    month = as.numeric(month),
+    day = as.numeric(day)
+  )
+```
+
+# Focusing On Particular Subject Areas
+
+```{r}
+n_questions = nrow(jeopardy)
+p_category_expected = 1/3369 
+p_not_category_expected = 3368/3369 
+```
+
+```{r}
+categories = pull(jeopardy, category)
+n_science_categories = 0
+
+# Count how many times the word science appears in the categories
+for (c in categories) {
+  if ("science" %in% c) {
+    n_science_categories = n_science_categories + 1
+  }
+}
+
+science_obs = c(n_science_categories, n_questions - n_science_categories)
+p_expected = c(1/3369, 3368/3369)
+chisq.test(science_obs, p = p_expected)
+```
+
+```{r}
+n_history_categories = 0
+
+# Count how many times the word science appears in the categories
+for (c in categories) {
+  if ("history" %in% c) {
+    n_history_categories = n_history_categories + 1
+  }
+}
+
+history_obs = c(n_history_categories, n_questions - n_history_categories)
+p_expected = c(1/3369, 3368/3369)
+chisq.test(history_obs, p = p_expected)
+```
+
+```{r}
+n_shakespeare_categories = 0
+
+# Count how many times the word science appears in the categories
+for (c in categories) {
+  if ("shakespeare" %in% c) {
+    n_shakespeare_categories = n_shakespeare_categories + 1
+  }
+}
+
+shakespeare_obs = c(n_shakespeare_categories, n_questions - n_shakespeare_categories)
+p_expected = c(1/3369, 3368/3369)
+chisq.test(shakespeare_obs, p = p_expected)
+```
+
+We see p-values less than 0.05 for each of the hypothesis tests. From this, we would conclude that we should reject the null hypothesis that science doesn't have a higher prevalence than other topics in the Jeopardy data. We would conclude the same with history and Shakespeare.
+
+# Unique Terms in Questions
+
+```{r}
+# Pull just the questions from the jeopardy data
+questions = pull(jeopardy, question)
+terms_used = character(0)
+
+for (q in questions) {
+  # Split the sentence into distinct words
+  split_sentence = str_split(q, " ")[[1]]
+  
+  # Check if each word is longer than 6 and if it's currently in terms_used
+  for (term in split_sentence) {
+    if (!term %in% terms_used & nchar(term) >= 6) {
+      terms_used = c(terms_used, term)
+    }
+  }
+}
+```
+
+# Terms In Low and High Value Questions
+
+```{r}
+# Going only through the first 20 terms for shortness
+# But you can remove the indexing to perform this code on all the terms
+values = pull(jeopardy, value)
+value_count_data = NULL
+
+for (term in terms_used[1:20]) {
+  n_high_value = 0
+  n_low_value = 0
+  
+  for (i in 1:length(questions)) {
+    # Split the sentence into a new vector
+    split_sentence = str_split(questions[i], " ")[[1]]
+    
+    # Detect if the term is in the question and its value status
+    if (term %in% split_sentence & values[i] >= 800) {
+      n_high_value = n_high_value + 1
+    } else if (term %in% split_sentence & values[i] < 800) { 
+      n_low_value = n_low_value + 1
+    }
+  }
+  
+  # Testing if the counts for high and low value questions deviates from what we expect
+  test = chisq.test(c(n_high_value, n_low_value), p = c(2/5, 3/5))
+  new_row = c(term, n_high_value, n_low_value, test$p.value)
+  
+  # Append this new row to our
+  value_count_data = rbind(value_count_data, new_row)
+  
+}
+```
+
+```{r}
+# Take the value count data and put it in a better format
+tidy_value_count_data = as_tibble(value_count_data)
+colnames(tidy_value_count_data) = c("term", "n_high", "n_low", "p_value")
+
+head(tidy_value_count_data)
+```
+
+We can see from the output that some of the values are less than 5. Recall that the chi-squared test is prone to errors when the counts in each of the cells are less than 5. We may need to discard these terms and only look at terms where both counts are greater than 5.
+
+From the 20 terms that we looked at, it seems that the term "indian" is more associated with high value questions. Interesting!
