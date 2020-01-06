@@ -1,5 +1,5 @@
 ---
-title: "Mission 409 Solutions"
+title: "Probability Fundamentals in R: Guided Project Solutions"
 output: html_document
 ---
 

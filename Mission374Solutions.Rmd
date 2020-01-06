@@ -1,5 +1,5 @@
 ---
-title: "Mission 374 Solutions"
+title: "Answering Business Questions using SQL (Intermediate SQL in R): Guided Project Solutions"
 output: html_document
 ---
 

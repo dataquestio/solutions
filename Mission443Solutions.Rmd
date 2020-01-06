@@ -1,5 +1,5 @@
 ---
-title: "Mission 443 Solutions"
+title: "Hypothesis Testing in R: Guided Project Solutions"
 output: html_document
 ---
 

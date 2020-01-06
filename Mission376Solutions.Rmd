@@ -1,5 +1,5 @@
 ---
-title: "Mission 376 Solutions"
+title: "Designing and Creating a Database (Intermediate SQL in R): Guided Project Solutions"
 output: html_document
 ---
 
