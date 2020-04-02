@@ -127,7 +127,6 @@ Make a boxplot to see if there appear to be differences in how the three groups 
 ```{r}
 combined_survey_gather %>%
   filter(response_type != "total") %>%
-  ggplot() +
-  aes(x = question, y = score, fill = response_type) +
+  ggplot(aes(x = question, y = score, fill = response_type)) +
   geom_boxplot()
 ```
