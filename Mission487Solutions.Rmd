@@ -1,0 +1,130 @@
+---
+title: 'Predicting Car Prices: Guided Project Solutions'
+output: html_document
+---
+
+# Introduction to the data
+
+```{r, message = FALSE, warning = FALSE }
+library(readr)
+library(tidyr)
+library(dplyr)
+cars <- read.csv("./data/imports-85.data")
+
+# Fixing the column names since the .data file reads headers incorrectly
+colnames(cars) <- c(
+  "symboling",
+  "normalized_losses",
+  "make",
+  "fuel_type",
+  "aspiration",
+  "num_doors",
+  "body_style",
+  "drive_wheels",
+  "engine_location",
+  "wheel_base",
+  "length",
+  "width",
+  "height",
+  "curb_weight",
+  "engine_type",
+  "num_cylinders",
+  "engine_size",
+  "fuel_system",
+  "bore",
+  "stroke",
+  "compression_ratio",
+  "horsepower",
+  "peak_rpm",
+  "city_mpg",
+  "highway_mpg",
+  "price"
+)
+
+# Removing non-numerical columns and removing missing data
+cars <- cars %>% 
+  select(
+    symboling, wheel_base, length, width, height, curb_weight,
+    engine_size, bore, stroke, compression_ratio, horsepower, 
+    peak_rpm, city_mpg, highway_mpg, price
+  ) %>% 
+  filter(
+    stroke != "?",
+    bore != "?",
+    horsepower != "?",
+    peak_rpm != "?",
+    price != "?"
+  ) %>% 
+  mutate(
+    stroke = as.numeric(stroke),
+    bore = as.numeric(bore),
+    horsepower = as.numeric(horsepower),
+    peak_rpm = as.numeric(peak_rpm),
+    price = as.numeric(price)
+  )
+
+# Confirming that each of the columns are numeric
+library(purrr)
+map(cars, typeof)
+```
+
+# Examining Relationships Between Predictors
+
+```{r}
+library(caret)
+featurePlot(cars, cars$price)
+```
+
+There looks to be a somewhat positive relationship between horsepower and price. City MPG and highway MPG look positive too, but there's a curious grouping that looks like it pops up. Many features look like they plateau in terms of price (ie even as we increase, price does not increase). Height seems not to have any meaningful relationship with price since the dots look like an evenly scattered plot.
+
+```{r}
+library(ggplot2)
+ggplot(cars, aes(x = price)) +
+  geom_histogram(color = "red") +
+  labs(
+    title = "Distribution of prices in cars dataset",
+    x = "Price",
+    y = "Frequency"
+  )
+```
+
+It looks like there's a reasonably even distirbution of the prices in the dataset, so there are no outliers.  There are 2 cars whose price is zero, so this might be suspect. This only represents 1% of the entire dataset, so it shouldn't have too much impact on predictions, especially if we use a high number of neighbors.
+
+# Setting up the train-test split
+
+```{r}
+library(caret)
+split_indices <- createDataPartition(cars$price, p = 0.8,  list = FALSE)
+train_cars <- cars[split_indices,]
+test_cars <- cars[-split_indices,]
+```
+
+
+# Cross-validation and hyperparameter optimization
+
+```{r}
+# 5-fold cross-validation 
+five_fold_control <- trainControl(method = "cv", number = 5)
+
+tuning_grid <- expand.grid(k = 1:20)
+```
+
+# Choosing a model
+
+```{r}
+# Creating a model based on all the features
+full_model <- train(price ~ .,
+                    data = train_cars,
+                    method = "knn",
+                    trControl = five_fold_control,
+                    tuneGrid = tuning_grid,
+                    preProcess = c("center", "scale"))
+```
+
+# Final model evaluation
+
+```{r}
+predictions <- predict(full_model, newdata = test_cars)
+postResample(pred = predictions, obs = test_cars$price)
+```
+
