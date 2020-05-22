@@ -1,0 +1,98 @@
+---
+title: "Guided Project Solutions: Creating An Efficient Data Analysis Workflow"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+reviews = read_csv("book_reviews.csv")
+```
+
+
+# Getting Familiar With The Data
+
+```{r}
+# How big is the dataset?
+dim(reviews)
+
+# What are the column names?
+colnames(reviews)
+
+# What are the column types?
+for (c in colnames(reviews)) {
+  print(typeof(reviews[[c]]))
+}
+```
+
+```{r}
+# What are the unique values in each column?
+for (c in colnames(reviews)) {
+  print("Unique values in the column:")
+  print(c)
+  print(unique(reviews[[c]]))
+  print("")
+}
+```
+
+All of the columns seem to contain strings. The `reviews` column represents what the score that the reviewer gave the book. The `book` column indicates which particular textbook was purchased. The `state` column represents the state where the book was purchased. The `price` column represents the price that the book was purchased for.
+
+# Handling Missing Data
+
+From the previous exercise, it's apparent that that the `review` column contains some `NA` values. We don't want any missing values in the dataset, so we need to get rid of them.
+
+```{r}
+complete_reviews = reviews %>% 
+  filter(!is.na(review))
+
+dim(complete_reviews)
+```
+
+There were about 200 reviews that were removed from the dataset. This is about 10% of the original dataset. This isn't too big of an amount, so we would feel comfortable continuing with our analysis.
+
+# Dealing With Inconsistent Labels
+
+We'll use the shortened postal codes instead since they're shorter.
+
+```{r}
+complete_reviews = complete_reviews %>% 
+  mutate(
+    state = case_when(
+      state == "California" ~ "CA",
+      state == "New York" ~ "NY",
+      state == "Texas" ~ "TX",
+      state == "Florida" ~ "FL",
+      TRUE ~ state # ignore cases where it's already postal code
+    )
+  )
+```
+
+# Transforming the Review Data
+
+```{r}
+complete_reviews = complete_reviews %>% 
+  mutate(
+    review_num = case_when(
+      review == "Poor" ~ 1,
+      review == "Fair" ~ 2,
+      review == "Good" ~ 3,
+      review == "Great" ~ 4,
+      review == "Excellent" ~ 5
+    ),
+    is_high_review = if_else(review_num >= 4, TRUE, FALSE)
+  )
+```
+
+# Analyzing The Data
+
+We'll define most profitable book in terms of how many books there was sold. 
+
+```{r}
+complete_reviews %>% 
+  group_by(book) %>% 
+  summarize(
+    purchased = n()
+  ) %>% 
+  arrange(-purchased)
+```
+
+The books are relatively well matched in terms of purchasing, but "Fundamentals of R For Beginners" has a slight edge over everyone else. 
