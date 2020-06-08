@@ -100,8 +100,13 @@ map2(x_var, y_var, create_scatter)
 Reshape the data so that you can investigate differences in student, parent, and teacher responses to survey questions.
 
 ```{r}
-combined_survey_gather <- combined_survey %>%                         
-  gather(key = "survey_question", value = score, saf_p_11:aca_tot_11)
+# combined_survey_gather <- combined_survey %>%
+#   gather(key = "survey_question", value = score, saf_p_11:aca_tot_11)
+
+combined_survey_gather <- combined_survey %>%
+  pivot_longer(cols = saf_p_11:aca_tot_11,
+               names_to = "survey_question",
+               values_to = "score")
 ```
 
 Use `str_sub()` to create new variables, `response_type` and `question`, from the `survey_question` variable.
