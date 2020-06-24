@@ -7,7 +7,7 @@ output: html_document
 library(tidyverse)
 library(lubridate)
 
-sales = read_csv("sales2019.csv")
+sales <- read_csv("sales2019.csv")
 ```
 
 # Data Exploration
@@ -47,19 +47,19 @@ The `user_submitted_review` column has some missing data in it. We'll have to ha
 
 ```{r}
 # Remove the rows with no user_submitted_review
-complete_sales = sales %>% 
+complete_sales <- sales %>% 
   filter(
     !is.na(user_submitted_review)
   )
 
 # Calculate the mean of the total_purchased column, without the missing values
-purchase_mean = complete_sales %>% 
+purchase_mean <- complete_sales %>% 
   filter(!is.na(total_purchased)) %>% 
   pull(total_purchased) %>% 
   mean
 
 # Assign this mean to all of the rows where total_purchased was NA
-complete_sales = complete_sales %>% 
+complete_sales <- complete_sales %>% 
   mutate(
     imputed_purchases = if_else(is.na(total_purchased), 
                                 purchase_mean,
@@ -76,7 +76,7 @@ complete_sales %>% pull(user_submitted_review) %>% unique
 The reviews range from outright hate ("Hated it") to positive ("Awesome!"). We'll create a function that uses a `case_when()` function to produce the output. `case_when()` functions can be incredibly bulky in cases where there's many options, but housing it in a function to `map` can make our code cleaner.
 
 ```{r}
-is_positive = function(review) {
+is_positive <- function(review) {
   review_positive = case_when(
   str_detect(review, "Awesome") ~ TRUE,
   str_detect(review, "OK") ~ TRUE,
@@ -86,7 +86,7 @@ is_positive = function(review) {
   )
 }
 
-complete_sales = complete_sales %>% 
+complete_sales <- complete_sales %>% 
   mutate(
     is_positive = unlist(map(user_submitted_review, is_positive))
   )
@@ -95,7 +95,7 @@ complete_sales = complete_sales %>%
 # Comparing Book Sales Between Pre- and Post-Program Sales
 
 ```{r}
-complete_sales = complete_sales %>% 
+complete_sales <- complete_sales %>% 
   mutate(
     date_status = if_else(mdy(date) < ymd("2019/07/01"), "Pre", "Post")
   )

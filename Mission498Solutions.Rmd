@@ -5,7 +5,7 @@ output: html_document
 
 ```{r}
 library(tidyverse)
-reviews = read_csv("book_reviews.csv")
+reviews <- read_csv("book_reviews.csv")
 ```
 
 
@@ -20,7 +20,7 @@ colnames(reviews)
 
 # What are the column types?
 for (c in colnames(reviews)) {
-  print(typeof(reviews[[c]]))
+  typeof(reviews[[c]])
 }
 ```
 
@@ -54,7 +54,7 @@ There were about 200 reviews that were removed from the dataset. This is about 1
 We'll use the shortened postal codes instead since they're shorter.
 
 ```{r}
-complete_reviews = complete_reviews %>% 
+complete_reviews <- complete_reviews %>% 
   mutate(
     state = case_when(
       state == "California" ~ "CA",
@@ -69,7 +69,7 @@ complete_reviews = complete_reviews %>%
 # Transforming the Review Data
 
 ```{r}
-complete_reviews = complete_reviews %>% 
+complete_reviews <- complete_reviews %>% 
   mutate(
     review_num = case_when(
       review == "Poor" ~ 1,
