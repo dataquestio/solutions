@@ -41,8 +41,9 @@ The dataset contains `14` columns and `10,903` rows. This database provides info
 
 2. The use of the function `glimpse()` is the very first operation to do because we don't only learn about the dimensions of the database but also about the names of the first columns and their types and content. It can replace the three previous operations: `dim()`, `colnames()`, and `head()`.
 
-# Isolating the Rows We Need
-- Selecting only the rows related to `"All States"` and removing the `Province_State`.
+# Isolating the Data We Need
+
+## Selecting only the rows related to `"All States"` and removing the `Province_State`.
 
 ```{r}
 library(dplyr)
@@ -54,10 +55,8 @@ covid_df_all_states <- covid_df %>%
 
 
 ```
-- We can remove `Province_State` without loosing information because after the filtering step this column only contains the value `"All States"`.
 
-# Isolating the Columns We Need
-- Creating a dataset for the daily columns from `covid_df_all_states` dataframe
+## Creating a dataset for the cumulative columns and another for the daily columns from `covid_df_all_states` dataframe
 
 Let's recall the description of the dataset's columns.
 
@@ -78,11 +77,48 @@ Let's recall the description of the dataset's columns.
 
 
 ```{r}
+
+# Selecting the columns with cumulative numbers
+covid_df_all_states_cumulative <- covid_df_all_states %>% 
+  select(Date, Continent_Name, Two_Letter_Country_Code, positive, hospitalized, recovered, death, total_tested)
+
 # Selecting the columns with cumulative numbers
 covid_df_all_states_daily <- covid_df_all_states %>% 
   select(Date, Country_Region, active, hospitalizedCurr, daily_tested, daily_positive)
 
-head(covid_df_all_states_daily)
+##print(xtable::xtable(head(covid_df_all_states_daily)), type = "html")
+```
+
+
+1. We can remove `Province_State` without loosing information because after the filtering step this column only contains the value `"All States"`.
+
+# Identifying the Highest Fatality Rates Countries
+
+## Summarizing the data based on the `Continent_Name` and `Two_Letter_Country_Code` columns.
+```{r}
+covid_df_all_states_cumulative_max <- covid_df_all_states_cumulative %>% 
+  group_by(Continent_Name, Two_Letter_Country_Code) %>% 
+  summarise(max = max(death)) %>% 
+  filter(max > 0)
+
+covid_df_all_states_cumulative_max
+
+```
+
+## Displaying the maximum number of death by country, colored by continent
+
+```{r}
+library(ggplot2)
+
+qplot(x = Two_Letter_Country_Code,
+      y = max,
+      col = Continent_Name,
+      data = covid_df_all_states_cumulative_max)
+```
+
+## Conclusion: Answering the question: Which countries have had the highest fatality (mortality) rates?
+```{r}
+death_top_3 <- c("US", "IT", "GB")
 ```
 
 
@@ -107,7 +143,7 @@ covid_df_all_states_daily_sum
 ```{r}
 covid_top_10 <- head(covid_df_all_states_daily_sum, 10)
 
-covid_top_10
+#print(xtable::xtable(covid_top_10), type = "html")
 ```
 
 
@@ -149,44 +185,80 @@ positive_tested_top_3 <- c("United Kingdom" = 0.11, "United States" = 0.10, "Tur
 ```
 
 
-# Keeping relevant information
+# Identifying Affected Countries Related to their Population
 
 ```{r}
-# Creating vectors
-united_kingdom <- c(0.11, 1473672, 166909, 0, 0)
-united_states <- c(0.10, 17282363, 1877179, 0, 0)
-turkey <- c(0.08, 2031192, 163941, 2980960, 0)
-
 # Creating the matrix covid_mat
-covid_mat <- rbind(united_kingdom, united_states, turkey)
+covid_mat <- cbind(tested_cases, positive_cases, active_cases, hospitalized_cases)
 
-# Naming columns
-colnames(covid_mat) <- c("Ratio", "tested", "positive", "active", "hospitalized")
+# Creating the population vector https://www.worldometers.info/world-population/population-by-country/
+population <- c(331002651, 145934462, 60461826, 1380004385, 84339067, 37742154, 67886011, 25499884, 32971854, 37846611)
 
-#d Displaying the matrix
+# Dividing the matrix by the population vector
+covid_mat <- covid_mat * 100/population
+
 covid_mat
+```
+
+## Ranking the matrix
+
+```{r}
+tested_cases_rank <- rank(covid_mat[,"tested_cases"])
+positive_cases_rank <- rank(covid_mat[,"positive_cases"])
+active_cases_rank <- rank(covid_mat[,"active_cases"])
+hospitalized_cases_rank <- rank(covid_mat[,"hospitalized_cases"])
+
+covid_mat_rank <- rbind(tested_cases_rank, positive_cases_rank, active_cases_rank, hospitalized_cases_rank)
+
+covid_mat_rank
+
+covid_mat_rank[1,]
+
+covid_mat_rank[-1, ]
+
+colSums(covid_mat_rank[-1, ])
+```
+
+## Conclusion
+```{r}
+best_effort_tested_cased_top_3 <- c("India", "United Kingdom", "Turkey")
+
+most_affected_country <- "Italy"
+
+least_affected_country <- "India"
 ```
 
 # Putting all together
 ```{r}
 
-question <- "Which countries have had the highest number of positive cases against the number of tests?"
+question_list <- list(
+  "Which countries have had the highest fatality (mortality) rates?",
+  "Which countries have had the highest number of positive cases against the number of tests?",
+  "Which countries have made the best effort in terms of the number of tests conducted related to their population?",
+  "Which countries were ultimately the most and least affected related to their population?"
+)
 
-answer <- c("Positive tested cases" = positive_tested_top_3)
+answer_list <- list(
+  "Death" = death_top_3,
+  "Positive tested cases" = positive_tested_top_3,
+  "The Best effort in test related to the population" = best_effort_tested_cased_top_3,
+  "The most affected country related to its population" = most_affected_country,
+  "The least affected country related to its population" = least_affected_country
+)
+
+answer_list
 
 datasets <- list(
   original = covid_df,
   allstates = covid_df_all_states,
-  daily = covid_df_all_states_daily,
-  top_10 = covid_top_10
+  cumulative = covid_df_all_states_cumulative,
+  daily = covid_df_all_states_daily
 )
+matrices <- list(covid_mat, covid_mat_rank)
+vectors <- list(vector_cols, population, countries)
 
-matrices <- list(covid_mat)
-vectors <- list(vector_cols, countries)
+data_structure_list <- list("data frame" = datasets, "matrix" = matrices, "vector" = vectors)
 
-data_structure_list <- list("dataframe" = datasets, "matrix" = matrices, "vector" = vectors)
+covid_analysis_list <- list(question_list, answer_list, data_structure_list)
 
-covid_analysis_list <- list(question, answer, data_structure_list)
-
-covid_analysis_list[[2]]
 ```
