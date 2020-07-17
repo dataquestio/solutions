@@ -1,0 +1,192 @@
+---
+title: 'Data Structures in R: Guided Project Solutions'
+author: "Dataquest"
+date: "6/6/2020"
+output: html_document
+---
+
+
+# Understanding the Data
+## Loading the dataset from the `covid19.csv` CSV file and quick exploration
+```{r}
+library(readr)
+
+# Loading the dataset
+covid_df <- read_csv("covid19.csv")
+```
+
+```{r}
+# Displaing the dimension of the data: 
+dim(covid_df)
+
+# Storing the column names in a variable
+vector_cols <- colnames(covid_df)
+
+# Displaing the variable vector_cols
+vector_cols
+
+# Showing the first few rows of the dataset
+head(covid_df)
+
+# Showing a global view of the dataset.
+library(tibble)
+
+glimpse(covid_df)
+
+```
+
+The dataset contains `14` columns and `10,903` rows. This database provides information on the numbers (per day and cumulatively) of COVID-19 positive cases, deaths, tests performed and hospitalizations for each country through the column's names store in the variable `vector_cols`. 
+
+1. This variable contains a character vector.
+
+2. The use of the function `glimpse()` is the very first operation to do because we don't only learn about the dimensions of the database but also about the names of the first columns and their types and content. It can replace the three previous operations: `dim()`, `colnames()`, and `head()`.
+
+# Isolating the Rows We Need
+- Selecting only the rows related to `"All States"` and removing the `Province_State`.
+
+```{r}
+library(dplyr)
+
+# Filter the "All States" Province states and remove the `Province_State` column
+covid_df_all_states <- covid_df %>% 
+  filter(Province_State == "All States") %>% 
+  select(-Province_State)
+
+
+```
+- We can remove `Province_State` without loosing information because after the filtering step this column only contains the value `"All States"`.
+
+# Isolating the Columns We Need
+- Creating a dataset for the daily columns from `covid_df_all_states` dataframe
+
+Let's recall the description of the dataset's columns.
+
+1. `Date`: Date
+2. `Continent_Name`: Continent names
+3. `Two_Letter_Country_Code`: Country codes
+4. `Country_Region`: Country names
+5. `Province_State`: States/province names; value is `All States` when state/provincial level data is not available
+6. `positive`: Cumulative number of positive cases reported.
+7. `active`: Number of actively cases on that **day**.
+8. `hospitalized`: Cumulative number of hospitalized cases reported.
+9. `hospitalizedCurr`: Number of actively hospitalized cases on that **day**.
+10. `recovered`: Cumulative number of recovered cases reported.
+11. `death`: Cumulative number of deaths reported.
+12. `total_tested`: Cumulative number of tests conducted.
+13. `daily_tested`: Number of tests conducted on the **day**; if daily data is unavailable, daily tested is averaged across number of days in between.
+14. `daily_positive`: Number of positive cases reported on the **day**; if daily data is unavailable, daily positive is averaged across number of days in.
+
+
+```{r}
+# Selecting the columns with cumulative numbers
+covid_df_all_states_daily <- covid_df_all_states %>% 
+  select(Date, Country_Region, active, hospitalizedCurr, daily_tested, daily_positive)
+
+head(covid_df_all_states_daily)
+```
+
+
+# Extracting the Top Ten countries in the number of tested cases
+
+## Summarizing the data based on the `Country_Region` column.
+```{r}
+covid_df_all_states_daily_sum <- covid_df_all_states_daily %>% 
+  group_by(Country_Region) %>% 
+  summarise(tested = sum(daily_tested), 
+            positive = sum(daily_positive),
+            active = sum(active),
+            hospitalized = sum(hospitalizedCurr)) %>% 
+  arrange(desc(tested)) #this is equivalent to `arrange(-tested)`
+
+covid_df_all_states_daily_sum
+
+#Date, Country_Region, active, hospitalizedCurr, daily_tested, daily_positive
+```
+
+## Taking the top 10 
+```{r}
+covid_top_10 <- head(covid_df_all_states_daily_sum, 10)
+
+covid_top_10
+```
+
+
+# Identifying the Highest Positive Against Tested Cases
+
+## Getting vectors
+```{r}
+countries <- covid_top_10$Country_Region
+tested_cases <- covid_top_10$tested
+positive_cases <- covid_top_10$positive
+active_cases <- covid_top_10$active
+hospitalized_cases <- covid_top_10$hospitalized
+```
+
+## Naming vectors
+```{r}
+names(positive_cases) <- countries
+names(tested_cases) <- countries
+names(active_cases) <- countries
+names(hospitalized_cases) <- countries
+```
+
+## Identifying 
+```{r}
+
+positive_cases
+sum(positive_cases)
+mean(positive_cases)
+positive_cases/sum(positive_cases)
+```
+
+```{r}
+positive_cases/tested_cases
+```
+
+## Conclusion
+```{r}
+positive_tested_top_3 <- c("United Kingdom" = 0.11, "United States" = 0.10, "Turkey" = 0.08)
+```
+
+
+# Keeping relevant information
+
+```{r}
+# Creating vectors
+united_kingdom <- c(0.11, 1473672, 166909, 0, 0)
+united_states <- c(0.10, 17282363, 1877179, 0, 0)
+turkey <- c(0.08, 2031192, 163941, 2980960, 0)
+
+# Creating the matrix covid_mat
+covid_mat <- rbind(united_kingdom, united_states, turkey)
+
+# Naming columns
+colnames(covid_mat) <- c("Ratio", "tested", "positive", "active", "hospitalized")
+
+#d Displaying the matrix
+covid_mat
+```
+
+# Putting all together
+```{r}
+
+question <- "Which countries have had the highest number of positive cases against the number of tests?"
+
+answer <- c("Positive tested cases" = positive_tested_top_3)
+
+datasets <- list(
+  original = covid_df,
+  allstates = covid_df_all_states,
+  daily = covid_df_all_states_daily,
+  top_10 = covid_top_10
+)
+
+matrices <- list(covid_mat)
+vectors <- list(vector_cols, countries)
+
+data_structure_list <- list("dataframe" = datasets, "matrix" = matrices, "vector" = vectors)
+
+covid_analysis_list <- list(question, answer, data_structure_list)
+
+covid_analysis_list[[2]]
+```
