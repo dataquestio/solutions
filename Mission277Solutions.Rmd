@@ -26,8 +26,8 @@ fires_by_month <- forest_fires %>%
   group_by(month) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_month) +
-  aes(x = month, y = total_fires) +
+ggplot(data = fires_by_month,
+  aes(x = month, y = total_fires)) +
   geom_bar(stat = "identity")  +
   theme(panel.background = element_rect(fill = "white"), 
         axis.line = element_line(size = 0.25, 
@@ -41,8 +41,8 @@ fires_by_DOW <- forest_fires %>%
   group_by(day) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_DOW) +
-  aes(x = day, y = total_fires) +
+ggplot(data = fires_by_DOW,
+  aes(x = day, y = total_fires)) +
   geom_bar(stat = "identity") +
   theme(panel.background = element_rect(fill = "white"), 
         axis.line = element_line(size = 0.25, 
@@ -66,8 +66,8 @@ Write a function to create a boxplot for visualizing variable distributions by m
 
 ## Write the function
 create_boxplots <- function(x, y) {
-  ggplot(data = forest_fires) + 
-    aes_string(x = x, y = y) +
+  ggplot(data = forest_fires, 
+    aes_string(x = x, y = y)) +
     geom_boxplot() +
     theme(panel.background = element_rect(fill = "white"))
 }
@@ -89,8 +89,8 @@ Create scatter plots to see which variables may affect forest fire size:
 
 ## write the function 
 create_scatterplots = function(x, y) {
-  ggplot(data = forest_fires) + 
-    aes_string(x = x, y = y) +
+  ggplot(data = forest_fires, 
+    aes_string(x = x, y = y)) +
     geom_point() +
     theme(panel.background = element_rect(fill = "white"))
 }
