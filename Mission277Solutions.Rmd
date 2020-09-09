@@ -7,10 +7,7 @@ output: html_document
 
 Load the packages we will need for the exercise: 
 ```{r}
-library(readr)
-library(dplyr)
-library(ggplot2)
-library(purrr)
+library(tidyverse)
 ```
 
 Import the data file. Save it as a data frame. 
@@ -26,79 +23,114 @@ fires_by_month <- forest_fires %>%
   group_by(month) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_month,
-  aes(x = month, y = total_fires)) +
-  geom_bar(stat = "identity")  +
-  theme(panel.background = element_rect(fill = "white"), 
-        axis.line = element_line(size = 0.25, 
-                                 colour = "black"))
+fires_by_month %>% 
+  ggplot(aes(x = month, y = total_fires)) +
+  geom_col()
 ```
 
 Create a bar chart showing the number of forest fires occurring on each day of the week
 
 ```{r}
-fires_by_DOW <- forest_fires %>%
+fires_by_dow <- forest_fires %>%
   group_by(day) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_DOW,
-  aes(x = day, y = total_fires)) +
-  geom_bar(stat = "identity") +
-  theme(panel.background = element_rect(fill = "white"), 
-        axis.line = element_line(size = 0.25, 
-                                 colour = "black")) 
+fires_by_dow %>% 
+  ggplot(aes(x = day, y = total_fires)) +
+  geom_col()
 ```
 
-Change the data type of month to factor and specify the order of months
+Adding another column to help us order the months
 
 ```{r}
-forest_fires <- forest_fires %>%
-  mutate(month = factor(month, levels = c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")), 
-         day = factor(day, levels = c("sun", "mon", "tue", "wed", "thu", "fri", "sat")))
+fires_by_month %>% 
+  mutate(
+    month_num = case_when(
+      month == "jan" ~ 1,
+      month == "feb" ~ 2,
+      month == "mar" ~ 3,
+      month == "apr" ~ 4,
+      month == "may" ~ 5,
+      month == "jun" ~ 6,
+      month == "jul" ~ 7,
+      month == "aug" ~ 8,
+      month == "sep" ~ 9,
+      month == "oct" ~ 10,
+      month == "nov" ~ 11,
+      month == "dec" ~ 12,
+    )
+  ) %>% 
+  ggplot(aes(x = month_num, y = total_fires)) +
+  geom_col() 
+```
 
-## once you have reordered the months and days of the week, you can re-run the bar chart code above
-# to create new bar graphs
+```{r}
+fires_by_dow %>% 
+  mutate(
+    day_num = case_when(
+      day == "sun" ~ 1,
+      day == "mon" ~ 2,
+      day == "tue" ~ 3,
+      day == "wed" ~ 4,
+      day == "thu" ~ 5,
+      day == "fri" ~ 6,
+      day == "sat" ~ 7,
+    )
+  ) %>% 
+  ggplot(aes(x = day_num, y = total_fires)) +
+  geom_col() +
+  scale_x_discrete(
+    breaks = 
+  )
 ```
 
 Write a function to create a boxplot for visualizing variable distributions by month and day of the week
 
+
 ```{r}
+forest_fires_long <- forest_fires %>% 
+  mutate(
+    month_num = case_when(
+      month == "jan" ~ 1,
+      month == "feb" ~ 2,
+      month == "mar" ~ 3,
+      month == "apr" ~ 4,
+      month == "may" ~ 5,
+      month == "jun" ~ 6,
+      month == "jul" ~ 7,
+      month == "aug" ~ 8,
+      month == "sep" ~ 9,
+      month == "oct" ~ 10,
+      month == "nov" ~ 11,
+      month == "dec" ~ 12,
+    )
+  ) %>% 
+  pivot_longer(
+    cols = c("FFMC", "DMC", "DC", 
+             "ISI", "temp", "RH", "wind", "rain"),
+    names_to = "data_col",
+    values_to = "value"
+  )
 
-## Write the function
-create_boxplots <- function(x, y) {
-  ggplot(data = forest_fires, 
-    aes_string(x = x, y = y)) +
-    geom_boxplot() +
-    theme(panel.background = element_rect(fill = "white"))
-}
-
-## Assign x and y variable names 
-x_var_month <- names(forest_fires)[3] ## month
-x_var_day <- names(forest_fires)[4] ## day
-y_var <- names(forest_fires)[5:12]
-
-## use the map() function to apply the function to the variables of interest
-month_box <- map2(x_var_month, y_var, create_boxplots) ## visualize variables by month
-day_box <- map2(x_var_day, y_var, create_boxplots) ## visualize variables by day
+forest_fires_long %>% 
+  ggplot(aes(x = month, y = value)) +
+  geom_boxplot() +
+  facet_grid(rows = vars(data_col), scales = "free_y")
 ```
-
 
 Create scatter plots to see which variables may affect forest fire size: 
 
 ```{r}
+forest_fires_long %>% 
+  ggplot(aes(x = value, y = area)) +
+  geom_point() +
+  facet_wrap(vars(data_col), scales = "free_x")
+```
 
-## write the function 
-create_scatterplots = function(x, y) {
-  ggplot(data = forest_fires, 
-    aes_string(x = x, y = y)) +
-    geom_point() +
-    theme(panel.background = element_rect(fill = "white"))
-}
-
-## Assign x and y variable names 
-x_var_scatter <- names(forest_fires)[5:12]
-y_var_scatter <- names(forest_fires)[13]
-
-## use the map() function to apply the function to the variables of interest
-scatters <- map2(x_var_scatter, y_var_scatter, create_scatterplots)
+```{r}
+forest_fires_long %>% 
+  filter(area < 300) %>% 
+  ggplot(aes(x = value, y = area)) +
+  geom_point() +
+  facet_wrap(vars(data_col), scales = "free_x")
 ```
