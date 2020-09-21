@@ -1,104 +1,163 @@
 ---
 title: "Solutions for Guided Project: Exploratory Visualization of Forest Fire Data"
 author: "Rose Martin"
-dat:e "December 4, 2018"
 output: html_document
 ---
 
-Load the packages we will need for the exercise: 
-```{r}
-library(readr)
-library(dplyr)
-library(ggplot2)
-library(purrr)
-```
+# Exploring Data Through Visualizations: Independent Investigations
 
-Import the data file. Save it as a data frame. 
+Load the packages and data we'll need for the project
 
 ```{r}
+library(tidyverse)
+
 forest_fires <- read_csv("forestfires.csv")
 ```
 
-Create a bar chart showing the number of forest fires occuring during each month
+# The Importance of Forest Fire Data
+
+```{r}
+# What columns are in the dataset?
+colnames(forest_fires)
+```
+
+We know that the columns correspond to the following information:
+
+* **X**: X-axis spatial coordinate within the Montesinho park map: 1 to 9 
+* **Y**: Y-axis spatial coordinate within the Montesinho park map: 2 to 9 
+* **month**: Month of the year: 'jan' to 'dec' 
+* **day**: Day of the week: 'mon' to 'sun' 
+* **FFMC**: Fine Fuel Moisture Code index from the FWI system: 18.7 to 96.20 
+* **DMC**: Duff Moisture Code index from the FWI system: 1.1 to 291.3 
+* **DC**: Drought Code index from the FWI system: 7.9 to 860.6 
+* **ISI**: Initial Spread Index from the FWI system: 0.0 to 56.10 
+* **temp**: Temperature in Celsius degrees: 2.2 to 33.30 
+* **RH**: Relative humidity in percentage: 15.0 to 100 
+* **wind**: Wind speed in km/h: 0.40 to 9.40 
+* **rain**: Outside rain in mm/m2 : 0.0 to 6.4 
+* **area**: The burned area of the forest (in ha): 0.00 to 1090.84 
+
+A single row corresponds to the location of a fire and some characteristics about the fire itself. Higher water presence is typically asssociated with less fire spread, so we might expect the water-related variables (`DMC` and `rain`) to be related with `area`.
+
+# Data Processing
+
+`month` and `day` are character vartiables, but we know that there is an inherent order to them. We'll convert these variables into factors so that they'll be sorted into the correct order when we plot them.
+
+```{r}
+forest_fires %>% pull(month) %>% unique
+```
+
+```{r}
+forest_fires %>% pull(day) %>% unique
+```
+
+This guided project will assume that Sunday is the first day of the week, but feel free to adjust the levels according to what's comfortable to you. Ultimately, the levels just help us rearrange the resulting plots in an order that makes sense to us.
+
+```{r}
+month_order <- c("jan", "feb", "mar",
+                 "apr", "may", "jun",
+                 "jul", "aug", "sep",
+                 "oct", "nov", "dec")
+
+dow_order <- c("sun", "mon", "tue", "wed", "thu", "fri", "sat")
+
+forest_fires <- forest_fires %>% 
+  mutate(
+    month = factor(month, levels = month_order),
+    day = factor(day, levels = dow_order)
+  )
+```
+
+# When Do Most Forest Fires Occur?
+
+We need to create a ssummary tibble that counts the number of fires that appears in each month. Then, we'll be able to use this tibble in a visualization. We can consider `month` and `day` to be different grouping variablse, so our code to produce the tibbles and plots will look similar.
+
+## Month Level
 
 ```{r}
 fires_by_month <- forest_fires %>%
   group_by(month) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_month,
-  aes(x = month, y = total_fires)) +
-  geom_bar(stat = "identity")  +
-  theme(panel.background = element_rect(fill = "white"), 
-        axis.line = element_line(size = 0.25, 
-                                 colour = "black"))
+fires_by_month %>% 
+  ggplot(aes(x = month, y = total_fires)) +
+  geom_col() +
+  labs(
+    title = "Number of forest fires in data by month",
+    y = "Fire count",
+    x = "Month"
+  )
 ```
 
-Create a bar chart showing the number of forest fires occurring on each day of the week
-
 ```{r}
-fires_by_DOW <- forest_fires %>%
+fires_by_dow <- forest_fires %>%
   group_by(day) %>%
   summarize(total_fires = n())
 
-ggplot(data = fires_by_DOW,
-  aes(x = day, y = total_fires)) +
-  geom_bar(stat = "identity") +
-  theme(panel.background = element_rect(fill = "white"), 
-        axis.line = element_line(size = 0.25, 
-                                 colour = "black")) 
+fires_by_dow %>% 
+  ggplot(aes(x = day, y = total_fires)) +
+  geom_col() +
+  labs(
+    title = "Number of forest fires in data by day of the week",
+    y = "Fire count",
+    x = "Day of the week"
+  )
 ```
 
-Change the data type of month to factor and specify the order of months
+We see a massive spike in fires in August and September, as well as a smaller spike in March. Fires seem to be more frequent on the weekend.
+
+# Plotting Other Variables Against Time 
 
 ```{r}
-forest_fires <- forest_fires %>%
-  mutate(month = factor(month, levels = c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")), 
-         day = factor(day, levels = c("sun", "mon", "tue", "wed", "thu", "fri", "sat")))
+forest_fires_long <- forest_fires %>% 
+  pivot_longer(
+    cols = c("FFMC", "DMC", "DC", 
+             "ISI", "temp", "RH", 
+             "wind", "rain"),
+    names_to = "data_col",
+    values_to = "value"
+  )
 
-## once you have reordered the months and days of the week, you can re-run the bar chart code above
-# to create new bar graphs
+forest_fires_long %>% 
+  ggplot(aes(x = month, y = value)) +
+  geom_boxplot() +
+  facet_wrap(vars(data_col), scale = "free_y") +
+  labs(
+    title = "Variable changes over month",
+    x = "Month",
+    y = "Variable value"
+  )
 ```
 
-Write a function to create a boxplot for visualizing variable distributions by month and day of the week
+# Examining Forest Fire Severity
+
+We are trying to see how each of the variables in the dataset relate to `area`. We can leverage the long format version of the data we created to use with `facet_wrap()`.
 
 ```{r}
-
-## Write the function
-create_boxplots <- function(x, y) {
-  ggplot(data = forest_fires, 
-    aes_string(x = x, y = y)) +
-    geom_boxplot() +
-    theme(panel.background = element_rect(fill = "white"))
-}
-
-## Assign x and y variable names 
-x_var_month <- names(forest_fires)[3] ## month
-x_var_day <- names(forest_fires)[4] ## day
-y_var <- names(forest_fires)[5:12]
-
-## use the map() function to apply the function to the variables of interest
-month_box <- map2(x_var_month, y_var, create_boxplots) ## visualize variables by month
-day_box <- map2(x_var_day, y_var, create_boxplots) ## visualize variables by day
+forest_fires_long %>% 
+  ggplot(aes(x = value, y = area)) +
+  geom_point() +
+  facet_wrap(vars(data_col), scales = "free_x") +
+  labs(
+    title = "Relationships between other variables and area burned",
+    x = "Value of column",
+    y = "Area burned (hectare)"
+  )
 ```
 
+# Outlier Problems
 
-Create scatter plots to see which variables may affect forest fire size: 
+It seems that there are two rows where `area` that still hurt the scale of the visualization. Let's make a similar visualization that excludes these observations so that we can better see how each variable relates to `area`.
 
 ```{r}
-
-## write the function 
-create_scatterplots = function(x, y) {
-  ggplot(data = forest_fires, 
-    aes_string(x = x, y = y)) +
-    geom_point() +
-    theme(panel.background = element_rect(fill = "white"))
-}
-
-## Assign x and y variable names 
-x_var_scatter <- names(forest_fires)[5:12]
-y_var_scatter <- names(forest_fires)[13]
-
-## use the map() function to apply the function to the variables of interest
-scatters <- map2(x_var_scatter, y_var_scatter, create_scatterplots)
+forest_fires_long %>% 
+  filter(area < 300) %>% 
+  ggplot(aes(x = value, y = area)) +
+  geom_point() +
+  facet_wrap(vars(data_col), scales = "free_x") +
+  labs(
+    title = "Relationships between other variables and area burned (area < 300)",
+    x = "Value of column",
+    y = "Area burned (hectare)"
+  )
 ```
