@@ -15,12 +15,12 @@ This analysis is an application of what we've learned in Dataquest's Conditional
 
 ```{r}
 # Bring in the dataset
-spam = read.csv("spam.csv")
+spam = read_csv("spam.csv")
 ```
 
 The `spam` dataset has `r nrow(spam)` rows and `r ncol(spam)` columns. Of these messages, `r mean(spam$label == "ham") * 100`% of them are not classified as spam, the rest are spam.
 
-# Dividing Up Into Training and Test Sets
+# Training, Cross-validation and Test Sets
 
 ```{r}
 # Calculate some helper values to split the dataset
@@ -113,8 +113,14 @@ n_ham = ham_vocab %>% length
 n_vocabulary = vocabulary %>% length 
 ```
 
+# Calculating Probability Parameters
+
 ```{r}
 # New vectorized approach to a calculating ham and spam probabilities
+
+# Marginal probability of a training message being spam or ham
+p_spam = mean(tidy_train$label == "spam")
+p_ham = mean(tidy_train$label == "ham")
 
 # Break up the spam and ham counting into their own tibbles
 spam_counts = tibble(
@@ -171,10 +177,6 @@ word_counts = full_join(spam_counts, ham_counts, by = "word") %>%
 # we add an alpha argument to make it easy to recalculate probabilities 
 # based on this alpha (default to 1)
 classify = function(message, alpha = 1) {
-  
-  # Initializing the probability product
-  p_spam = mean(tidy_train$label == "spam")
-  p_ham = mean(tidy_train$label == "ham")
   
   # Splitting and cleaning the new message
   # This is the same cleaning procedure used on the training messages
@@ -233,12 +235,16 @@ final_train = tidy_train %>%
   mutate(
     prediction = map_chr(sms, function(m) { classify(m) })
   ) 
+```
 
+# Calculating Accuracy
 
+```{r}
 # Results of classification on training
 confusion = table(final_train$label, final_train$prediction)
 accuracy = (confusion[1,1] + confusion[2,2]) / nrow(final_train)
 ```
+
 
 The Naive Bayes Classifier achieves an accuracy of about 89%. Pretty good! Let's see how well it works on messages that it has never seen before.
 
