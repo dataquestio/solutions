@@ -5,6 +5,10 @@ date: "11/26/2020"
 output: html_document
 ---
 
+# Introduction
+- Title: Analyzing New York solar data.
+- By using APIs, we have access to an astronomical amount of data available only online. In this study, we want to extract New York solar data. Such data can, for example, allow us to decide on average the most fruitful periods of the year for solar panel deployment.
+        
 # Finding the Suitable Endpoint and Parameters to Query the API
 ```{r}
 # Storing my api key in a variable
@@ -27,22 +31,24 @@ response <- GET(url, query = parameters_list)
 
 # Tracking errors 
 ## Displaying the status code with the `status_code()` function
-print(status_code(response))
+status <- status_code(response)
+status
 
 ## Displaying the API response format
-print(http_type(response))
+response_type <- http_type(response)
+response_type
 
 # Extracting the API response content as text
-json_text <- content(response, "text")
+content <- content(response, "text")
 
 # Displaying this content to check how it looks visually.
-print(json_text)
+print(content)
 ```
 
 # Parsing the JSON into R Object
 ```{r}
 # Parsing the `json_text` to a R object using the `jsonlite::fromJSON()` function
-json_lists <- jsonlite::fromJSON(json_text)
+json_lists <- jsonlite::fromJSON(content)
 
 # Displaying the structure of the R object using the `str()` function
 str(json_lists)
@@ -66,15 +72,16 @@ avg_lat_tilt <- outputs_list$avg_lat_tilt$monthly
 
 # Combining the monthly vectors into a dataframe using the `tibble::tibble()` function
 ## Adding the `month` column containing month abbreviations: `Jan`, `Fev`,...,`Dec`
-dataframe <- tibble::tibble("avg_dni" = avg_dni, 
+dataframe <- tibble::tibble("month" = month.abb,
+                            "avg_dni" = avg_dni, 
                             "avg_ghi" = avg_ghi, 
-                            "avg_lat_tilt" = avg_lat_tilt, 
-                            "month" = month.abb)
+                            "avg_lat_tilt" = avg_lat_tilt)
 
 # Displaying the dataframe
 dataframe
 ```
 
+- (Instruction 4's answer)
 We can see that all the columns are still lists containing one item. For future use of this dataframe, it would probably be necessary to convert these columns to numeric.
 
 # Extracting Datarame from a Complex List: 
@@ -97,6 +104,9 @@ another_dataframe <- as.data.frame(data_matrix)
 # Displaying the dataframe
 another_dataframe
 ```
+
+- (Instruction 6's answer)
+We can see that all the columns are numeric. However, we haven't appended the `month` column yet.
 
 # Putting all together
 ```{r}
@@ -133,10 +143,10 @@ nrel_api_json_get_df <- function(endpoint, queries = list()) {
   ## Converting content into Dataframe
   table_lst <- jsonlite::fromJSON(json_text)
 
-  dataframe <- tibble::tibble("avg_dni" = as.numeric(table_lst$outputs$avg_dni$monthly), 
-                            "avg_ghi" = as.numeric(table_lst$outputs$avg_ghi$monthly), 
-                            "avg_lat_tilt" = as.numeric(table_lst$outputs$avg_lat_tilt$monthly), 
-                            "month" = month.abb)
+  dataframe <- tibble::tibble("month" = month.abb,
+                              "avg_dni" = as.numeric(table_lst$outputs$avg_dni$monthly),
+                              "avg_ghi" = as.numeric(table_lst$outputs$avg_ghi$monthly),
+                              "avg_lat_tilt" = as.numeric(table_lst$outputs$avg_lat_tilt$monthly))
     
   ## Returning the dataframe  
   dataframe
@@ -165,8 +175,6 @@ ggplot(data = solar_resource_df,
   geom_point() +
   theme_bw()
 
-ggsave("plot_avg_dni_before_factor.svg")
-
 # Converting the `month` column into factor using the following command  
 solar_resource_df <- solar_resource_df %>% 
   mutate(month = factor(month, levels = month.abb))
@@ -178,10 +186,10 @@ ggplot(data = solar_resource_df,
   geom_point() +
   theme_bw()
 
-ggsave("plot_avg_dni_after_factor.svg")
 ```
 
-The first plot x-axis is ordered alphabetically, while the second is in the natural order of months, from January to December. 
+- (Instruction 5's answer)
+The first plot x-axis is ordered alphabetically, while the second is ordered chronologically, from January to December. 
 
 This operation allows ordering the labels in the plot as we wish.
 
