@@ -5,6 +5,10 @@ date: "11/26/2020"
 output: html_document
 ---
 
+# Introduction
+- Title: Movie's ratings versus user votes
+- Usually, we can find online a lot of information about the ranking of movies, universities, supermarkets. We can use these data to supplement information from another database or facilitate trend analysis. However, it's not easy to choose the right criterion because several criteria can be interesting (e.g., movies' rating and user votes). In this project, we want to extract information on the most famous movies early this year and check if the ratings are in adequacy with the votes. If yes, then we can consider either one or the other without loss of information.
+
 # Loading the Web Page
 ```{r}
 # Loading the `rvest`, `dplyr`, and `ggplot2` packages
@@ -13,7 +17,7 @@ library(dplyr)
 library(ggplot2)
 
 # Specifying the URL where we will extract video data
-url <- "http://dataquestio.github.io/web-scraping-pages/Feature%20Film,%20Released%20between%202020-03-01%20and%202020-07-31%20(Sorted%20by%20Popularity%20Ascending)%20-%20IMDb.html"
+url <- "http://dataquestio.github.io/web-scraping-pages/IMDb-DQgp.html"
 
 # Loading the web page content using the `read_html()` function
 wp_content <- read_html(url)
@@ -161,17 +165,53 @@ votes <- readr::parse_number(votes)
 votes
 ```
 
+# Dealing with missing data
+```{r}
+# Copy-pasting the `append_vector()` in our Markdown file
+append_vector <- function(vector, inserted_indices, values){
+  
+  ## Creating the current indices of the vector
+  vector_current_indices <- 1:length(vector)
+  
+  ## Adding `0.5` to the `inserted_indices`
+  new_inserted_indices <- inserted_indices + seq(0, 0.9, length.out = length(inserted_indices))
+  
+  ## Appending the `new_inserted_indices` to the current vector indices
+  indices <- c(vector_current_indices, new_inserted_indices)
+  
+  ## Ordering the indices
+  ordered_indices <- order(indices)
+  
+  ## Appending the new value to the existing vector
+  new_vector <- c(vector, values)
+  
+  ## Ordering the new vector wrt the ordered indices
+  new_vector[ordered_indices]
+}
+
+# Using the `append_vector()` function to insert `NA` into the metascores vector after the positions 1, 1, 1, 13, and 24 and saving the result back in metascores vector
+metascores <- append_vector(metascores, c(1, 1, 1, 13, 24), NA)
+metascores
+
+# Removing the 17th element from the vectors: titles, years, runtimes, genres, and metascores
+## Saving the result back to these vectors.
+titles <- titles[-17]
+years <- years[-17]
+runtimes <- runtimes[-17]
+genres <- genres[-17]
+metascores <- metascores[-17]
+```
 
 # Putting all together and Visualize
 ```{r}
-# Creating a dataframe with the data we previously extracted: titles, years, runtimes, genres, user ratings, and votes.
-## Removing the 17th element from the vectors: titles, years, runtimes, and genres
+# Creating a dataframe with the data we previously extracted: titles, years, runtimes, genres, user ratings, metascores, and votes.
 ## Keeping only the integer part of the user ratings using the `floor()` function. For example, `3.4` becomes `3`.
-movie_df <- tibble::tibble("title" = titles[-17], 
-                           "year" = years[-17], 
-                           "runtime" = runtimes[-17], 
-                           "genre" = genres[-17], 
+movie_df <- tibble::tibble("title" = titles, 
+                           "year" = years, 
+                           "runtime" = runtimes, 
+                           "genre" = genres, 
                            "rating" = floor(user_ratings), 
+                           "metascore" = metascores,
                            "vote" = votes)
 
 # Creating a boxplot that show the number of vote again the user rating
