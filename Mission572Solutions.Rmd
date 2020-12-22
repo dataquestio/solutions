@@ -1,0 +1,181 @@
+---
+title: 'Guided Project: Analyzing Movie Ratings'
+author: "Dataquest"
+date: "11/26/2020"
+output: html_document
+---
+
+# Introduction
+
+- Title: Movies' ratings versus user votes
+- Usually, we can find a lot of information online about the ranking of movies, universities, supermarkets, etc. We can use these data to supplement information from another database or facilitate trend analysis. However, it's not easy to choose the right criterion because several might be interesting (e.g., movies' ratings and user votes). In this project, we want to extract information on the most popular movies from early 2020 and check if the ratings are in alignment with the votes. If yes, then we can consider either one or the other without loss of information.
+
+# Loading the Web Page
+```{r}
+# Loading the `rvest`, `dplyr`, and `ggplot2` packages
+library(rvest)
+library(dplyr)
+library(ggplot2)
+# Specifying the URL where we will extract video data
+url <- "http://dataquestio.github.io/web-scraping-pages/IMDb-DQgp.html"
+# Loading the web page content using the `read_html()` function
+wp_content <- read_html(url)
+```
+
+# String Manipulation Reminder
+```{r}
+# Converting "10.50" into numeric
+as.numeric("10.50")
+# Converting the vector `c("14.59", "3.14", "55")` into numeric
+as.numeric(c("14.59", "3.14", "55"))
+# Parsing the vector `c("14 min", "17,35", "(2012)", "1,2,3,4")` into numeric
+readr::parse_number(c("14 min", "17,35", "(2012)", "1,2,3,4"))
+# Removing whitespaces at the begining and end of `" Space before and after should disappear     "`
+stringr::str_trim(" Space before and after should disappear     ")
+```
+
+# Extracting Elements from the Header
+```{r}
+# Extracting the movie's titles
+## Finding the title CSS selector
+title_selector <- ".lister-item-header a"
+## Identifying the number of elements this selector will select from Selector Gadget 
+n_title <- 30
+## Extracting the movie titles combining the `html_nodes()` and `html_text()` function
+titles <- wp_content %>% 
+  html_nodes(title_selector) %>% 
+  html_text()
+## Printing titles vector
+titles
+# Extracting the movie's years
+## Using a process similar to the one we used to extract the titles
+year_selector <- ".lister-item-year"
+n_year <- 30
+years <- wp_content %>% 
+  html_nodes(year_selector) %>% 
+  html_text()
+## Converting the years from character to numeric data type
+years <- readr::parse_number(years)
+## Printing years vector
+years
+```
+
+# Extracting Movie's Features
+```{r}
+# Extracting the movie's runtimes
+## Finding the title CSS selector
+runtime_selector <- ".runtime"
+## Identifying the number of elements this selector will select from Selector Gadget 
+n_runtime <- 30
+## Extracting the movie runtimes combining the `html_nodes()` and `html_text()` function
+runtimes <- wp_content %>% 
+  html_nodes(runtime_selector) %>% 
+  html_text()
+## Converting the runtimes from character to numeric data type
+runtimes <- readr::parse_number(runtimes)
+## Printing runtimes vector
+runtimes
+# Extracting the movie's genres
+## Extracting the movie genres using a similar process as previously
+genre_selector <- ".genre"
+n_genre <- 30
+genres <- wp_content %>% 
+  html_nodes(genre_selector) %>% 
+  html_text()
+## Removing whitespaces at the end of genre characters
+genres <- stringr::str_trim(genres)
+## Printing genres vector
+genres
+```
+
+# Extracting Movie's Ratings
+```{r}
+# Extracting the movie's user ratings
+## Finding the user rating CSS selector
+user_rating_selector <- ".ratings-imdb-rating"
+## Identifying the number of elements this selector will select from Selector Gadget 
+n_user_rating <- 29
+## Extracting the user rating combining the `html_nodes()` and `html_attr()` function
+user_ratings <- wp_content %>% 
+  html_nodes(user_rating_selector) %>% 
+  html_attr("data-value")
+## Converting the user rating from character to numeric data type
+user_ratings <- as.numeric(user_ratings)
+## Printing user ratings vector
+user_ratings
+# Extracting the movie's metascores
+## Extracting the movie metascore using a similar process as previously
+metascore_selector <- ".metascore"
+n_metascore <- 25
+metascores <- wp_content %>% 
+  html_nodes(metascore_selector) %>% 
+  html_text()
+## Removing whitespaces at the end of metascores and converting them into numeric
+metascores <- stringr::str_trim(metascores)
+metascores <- as.numeric(metascores)
+## Printing metascores vector
+metascores
+```
+
+# Extracting Movie's Votes
+```{r}
+# Extracting the movie's votes
+## Finding the vote CSS selector
+vote_selector <- ".sort-num_votes-visible :nth-child(2)"
+## Identifying the number of elements this selector will select from Selector Gadget 
+n_vote <- 29
+## Extracting the votes combining the `html_nodes()` and `html_text()` function
+votes <- wp_content %>% 
+  html_nodes(vote_selector) %>% 
+  html_text()
+## Converting the vote from character to numeric data type
+votes <- readr::parse_number(votes)
+## Printing votes vector
+votes
+```
+
+# Dealing with missing data
+```{r}
+# Copy-pasting the `append_vector()` in our Markdown file
+append_vector <- function(vector, inserted_indices, values){
+  ## Creating the current indices of the vector
+  vector_current_indices <- 1:length(vector)
+  ## Adding `0.5` to the `inserted_indices`
+  new_inserted_indices <- inserted_indices + seq(0, 0.9, length.out = length(inserted_indices))
+  ## Appending the `new_inserted_indices` to the current vector indices
+  indices <- c(vector_current_indices, new_inserted_indices)
+  ## Ordering the indices
+  ordered_indices <- order(indices)
+  ## Appending the new value to the existing vector
+  new_vector <- c(vector, values)
+  ## Ordering the new vector wrt the ordered indices
+  new_vector[ordered_indices]
+}
+# Using the `append_vector()` function to insert `NA` into the metascores vector after the positions 1, 1, 1, 13, and 24 and saving the result back in metascores vector
+metascores <- append_vector(metascores, c(1, 1, 1, 13, 24), NA)
+metascores
+# Removing the 17th element from the vectors: titles, years, runtimes, genres, and metascores
+## Saving the result back to these vectors.
+titles <- titles[-17]
+years <- years[-17]
+runtimes <- runtimes[-17]
+genres <- genres[-17]
+metascores <- metascores[-17]
+```
+
+# Putting all together and Visualize
+```{r}
+# Creating a dataframe with the data we previously extracted: titles, years, runtimes, genres, user ratings, metascores, and votes.
+## Keeping only the integer part of the user ratings using the `floor()` function. For example, `3.4` becomes `3`.
+movie_df <- tibble::tibble("title" = titles, 
+                           "year" = years, 
+                           "runtime" = runtimes, 
+                           "genre" = genres, 
+                           "rating" = floor(user_ratings), 
+                           "metascore" = metascores,
+                           "vote" = votes)
+# Creating a boxplot that show the number of vote again the user rating
+ggplot(data = movie_df,
+       aes(x = rating, y = vote, group = rating)) +
+  geom_boxplot()
+```
