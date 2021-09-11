@@ -330,10 +330,10 @@ create_game_command <- "
       length_outs INTEGER,
       day BOOLEAN,
       completion TEXT,
-      forefeit TEXT,
+      forfeit TEXT,
       protest TEXT,
       attendance INTEGER,
-      legnth_minutes INTEGER,
+      length_minutes INTEGER,
       additional_info TEXT,
       acquisition_info TEXT,
       FOREIGN KEY (park_id) REFERENCES park(park_id)
@@ -357,7 +357,7 @@ insert_to_game <- '
           END
           AS day,
       completion,
-      forefeit,
+      forfeit,
       protest,
       attendance,
       length_minutes,
@@ -416,7 +416,7 @@ create_team_appearance_command <- "
       PRIMARY KEY (team_id, game_id),
       FOREIGN KEY (team_id) REFERENCES team(team_id),
       FOREIGN KEY (game_id) REFERENCES game(game_id),
-      FOREIGN KEY (team_id) REFERENCES team(team_id)
+      FOREIGN KEY (league_id) REFERENCES team(league_id)
   );
 "
 
