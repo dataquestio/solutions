@@ -98,14 +98,14 @@ for (sm in spam_messages) {
   words <- str_split(sm, " ")[[1]]
   spam_vocab  <- c(spam_vocab, words)
 }
-spam_vocab <- spam_vocab
+spam_vocab
 
 ham_vocab <- NULL
 for (hm in ham_messages) {
   words <- str_split(hm, " ")[[1]]
   ham_vocab <- c(ham_vocab, words)
 }
-ham_vocab <- ham_vocab
+ham_vocab
 
 # Calculate some important parameters from the vocab
 n_spam <- spam_vocab %>% length()
