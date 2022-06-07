@@ -20,7 +20,7 @@ colnames(reviews)
 
 # What are the column types?
 for (c in colnames(reviews)) {
-  typeof(reviews[[c]])
+  print(typeof(reviews[[c]]))
 }
 ```
 
