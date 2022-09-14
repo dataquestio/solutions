@@ -330,7 +330,7 @@ create_game_command <- "
       length_outs INTEGER,
       day BOOLEAN,
       completion TEXT,
-      forefeit TEXT,
+      forfeit TEXT,
       protest TEXT,
       attendance INTEGER,
       legnth_minutes INTEGER,
@@ -357,7 +357,7 @@ insert_to_game <- '
           END
           AS day,
       completion,
-      forefeit,
+      forfeit,
       protest,
       attendance,
       length_minutes,
