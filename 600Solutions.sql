@@ -62,7 +62,7 @@ SELECT productCode,
                                             WHERE od.productCode = p.productCode), 2) AS low_stock
   FROM orderdetails od
  GROUP BY productCode
- ORDER BY low_stock
+ ORDER BY low_stock DESC
  LIMIT 10;
  
 
@@ -84,7 +84,7 @@ SELECT productCode,
                                           WHERE od.productCode = p.productCode), 2) AS low_stock
   FROM orderdetails od
  GROUP BY productCode
- ORDER BY low_stock
+ ORDER BY low_stock DESC
  LIMIT 10
 )
 
