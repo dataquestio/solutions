@@ -110,10 +110,11 @@ covid_df_all_states_cumulative_max
 ```{r}
 library(ggplot2)
 
-qplot(x = Two_Letter_Country_Code,
-      y = max,
-      col = Continent_Name,
-      data = covid_df_all_states_cumulative_max)
+gglot(data = covid_df_all_states_cumulative_max, 
+  aes(x = Two_Letter_Country_Code,
+  y = max,
+  col = Continent_Name)) + 
+  geom_point()
 ```
 
 ## Conclusion: Answering the question: Which countries have had the highest fatality (mortality) rates?
