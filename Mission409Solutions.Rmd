@@ -141,7 +141,7 @@ for (n in test_amounts) {
 probability_less_6 <- function(n) {
   
     n_combinations_ticket = combinations(6, n)
-    n_combinations_remaining = combinations(49 - n, 6 - n)
+    n_combinations_remaining = combinations(43, 6 - n)
     successful_outcomes = n_combinations_ticket * n_combinations_remaining
     n_combinations_total = combinations(49, 6)
     
