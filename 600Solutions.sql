@@ -86,8 +86,9 @@ SELECT productCode,
  GROUP BY productCode
  ORDER BY low_stock DESC
  LIMIT 10
-)
+),
 
+products_to_restock AS (
 SELECT productCode, 
        SUM(quantityOrdered * priceEach) AS prod_perf
   FROM orderdetails od
@@ -95,7 +96,14 @@ SELECT productCode,
                          FROM low_stock_table)
  GROUP BY productCode 
  ORDER BY prod_perf DESC
- LIMIT 10;
+ LIMIT 10
+)
+    
+SELECT productName, productLine
+  FROM products AS p
+ WHERE productCode IN (SELECT productCode
+                         FROM products_to_restock);
+
 
 
 /* Screen 5 */
