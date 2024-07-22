@@ -23,11 +23,6 @@ class ConversationManager:
             api_key=api_key,
             base_url=base_url
         )
-        if history_file is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.history_file = f"conversation_history_{timestamp}.json"
-        else:
-            self.history_file = history_file
 
         self.model = model if model else DEFAULT_MODEL
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
@@ -41,8 +36,7 @@ class ConversationManager:
             "custom": "Enter your custom system message here."
         }
         self.system_message = self.system_messages["sassy_assistant"]  # Default persona
-
-        self.load_conversation_history()
+        self.conversation_history = [{"role": "system", "content": self.system_message}]
 
     def count_tokens(self, text):
         try:
@@ -114,35 +108,11 @@ class ConversationManager:
 
         ai_response = response.choices[0].message.content
         self.conversation_history.append({"role": "assistant", "content": ai_response})
-        self.save_conversation_history()
 
         return ai_response
     
-    def load_conversation_history(self):
-        try:
-            with open(self.history_file, "r") as file:
-                self.conversation_history = json.load(file)
-        except FileNotFoundError:
-            self.conversation_history = [{"role": "system", "content": self.system_message}]
-        except json.JSONDecodeError:
-            print("Error reading the conversation history file. Starting with an empty history.")
-            self.conversation_history = [{"role": "system", "content": self.system_message}]
-
-    def save_conversation_history(self):
-        try:
-            with open(self.history_file, "w") as file:
-                json.dump(self.conversation_history, file, indent=4)
-        except IOError as e:
-            print(f"An I/O error occurred while saving the conversation history: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred while saving the conversation history: {e}")
-
     def reset_conversation_history(self):
         self.conversation_history = [{"role": "system", "content": self.system_message}]
-        try:
-            self.save_conversation_history()  # Attempt to save the reset history to the file
-        except Exception as e:
-            print(f"An unexpected error occurred while resetting the conversation history: {e}")
 
 ### Streamlit code ###
 st.title("Sassy Chatbot :face_with_rolling_eyes:")
@@ -195,6 +165,3 @@ for message in conversation_history:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.write(message["content"])
-
-
-
