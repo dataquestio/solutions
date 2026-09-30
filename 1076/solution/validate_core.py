@@ -12,7 +12,7 @@ import os
 
 # Flip this to True to also run the agent on the three sources and check its output.
 # It needs OPENAI_API_KEY set and will make real (small) API calls.
-RUN_LLM_TEST = True
+RUN_LLM_TEST = False
 
 from intake_server import resolve, validate, Roster
 
@@ -20,14 +20,14 @@ passed = 0
 failed = 0
 
 
-def check(label, got, want):
+def check(label, actual, expected):
     global passed, failed
-    if got == want:
+    if actual == expected:
         passed = passed + 1
         print(f"[PASS] {label}")
     else:
         failed = failed + 1
-        print(f"[FAIL] {label}\n    got={got!r} want={want!r}")
+        print(f"[FAIL] {label}\n    actual={actual!r} expected={expected!r}")
 
 
 def code_of(text):
@@ -46,51 +46,67 @@ def category_of(text):
 
 def run_core_tests():
     """The offline half: the deterministic machinery, no LLM and no network."""
+    # resolve(): turn a messy species name into the right eBird code, or no_match.
     print("--- resolve ---")
+    # typos and misnames of "Canada Goose" all resolve to its code
     check("'Canda Goose' -> cangoo", code_of("Canda Goose"), "cangoo")
     check("'Canadian Goose' -> cangoo", code_of("Canadian Goose"), "cangoo")
+    # birder nickname and shortened forms, handled by the alias table
     check("'Canadas' -> cangoo", code_of("Canadas"), "cangoo")
     check("'Canada' -> cangoo", code_of("Canada"), "cangoo")
+    # a scientific name resolves just like a common name
     check("'Quiscalus mexicanus' -> grtgra", code_of("Quiscalus mexicanus"), "grtgra")
+    # more aliases and exact common names
     check("'annas hummingbird' -> annhum", code_of("annas hummingbird"), "annhum")
     check("'red-tail' -> rethaw", code_of("red-tail"), "rethaw")
     check("'mallard' -> mallar3", code_of("mallard"), "mallar3")
     check("'American Robbin' -> amerob", code_of("American Robbin"), "amerob")
+    # a name that isn't in the taxonomy at all comes back as no_match
     check("'Jackalope Warbler' -> no_match", code_of("Jackalope Warbler"), "no_match")
+    # group terms resolve to the "spuh" category, not a single species
     check("'gull' -> spuh", category_of("gull"), "spuh")
     check("'hawk' -> spuh", category_of("hawk"), "spuh")
-    # resolve_species does an exact lookup only; extracting the name from a phrase is the
-    # agent's job, so a whole phrase must NOT resolve.
+    # resolve() does an exact lookup only; pulling the species name out of a
+    # phrase is the agent's job, so a whole phrase must NOT resolve.
     check("'some kind of gull' -> no_match (agent must strip it)", code_of("some kind of gull"), "no_match")
 
+    # validate(): a record passes only if its shape, date, and species all check out.
+    # Start from one clean record, then break a single field at a time.
     print("\n--- validate ---")
-    good = {"species_code": "grtgra", "common_name": "Great-tailed Grackle",
+    good_record = {"species_code": "grtgra", "common_name": "Great-tailed Grackle",
             "scientific_name": "Quiscalus mexicanus", "count": 4, "date": "2026-05-10",
             "location": "Cedar Ridge", "source": "spreadsheet"}
-    check("clean record valid", validate(good)["valid"], True)
-    bad_spuh = dict(good)
+    check("clean record valid", validate(good_record)["valid"], True)
+    # a "spuh" group code is not a single species, so it's rejected
+    bad_spuh = good_record.copy()
     bad_spuh["species_code"] = "gullsp"
     check("spuh code rejected", validate(bad_spuh)["valid"], False)
-    bad_count = dict(good)
+    # count must be greater than 0
+    bad_count = good_record.copy()
     bad_count["count"] = 0
     check("zero count rejected", validate(bad_count)["valid"], False)
-    no_loc = dict(good)
+    # location cannot be blank
+    no_loc = good_record.copy()
     no_loc["location"] = ""
     check("blank location rejected", validate(no_loc)["valid"], False)
-    bad_date = dict(good)
+    # the date must fall inside the count window (May 2026)
+    bad_date = good_record.copy()
     bad_date["date"] = "2026-07-01"
     check("date outside window rejected", validate(bad_date)["valid"], False)
 
+    # Roster: catch duplicates, and never queue the same review item twice.
     print("\n--- roster: dedup + no double flag ---")
     roster = Roster()
-    first = dict(good)
+    first = good_record.copy()
     first["species_code"] = "cangoo"
     first["date"] = "2026-05-09"
     first["location"] = "Cedar Ridge"
     roster.add(first)
-    again = dict(first)
+    # the same sighting with a different-case location still counts as a duplicate
+    again = first.copy()
     again["location"] = "cedar ridge"
     check("duplicate across case", roster.duplicate_of(again), "obs-1")
+    # flagging the identical item twice should leave just one entry in review
     roster.flag("American Robbin", "spreadsheet", "incomplete_record")
     roster.flag("American Robbin", "spreadsheet", "incomplete_record")
     check("flag not double-queued", len(roster.review), 1)

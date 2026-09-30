@@ -9,8 +9,11 @@ import json
 import os
 
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from intake_server import mcp, ROSTER, SITES
+
+load_dotenv()   # read OPENAI_API_KEY from a .env file in the project folder
 
 MODEL = "gpt-4o-mini"
 MAX_ITERATIONS = 30
