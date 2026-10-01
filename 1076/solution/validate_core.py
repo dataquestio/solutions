@@ -9,6 +9,9 @@ RUN_LLM_TEST = True below (that part needs OPENAI_API_KEY and makes real API cal
 Run from the project folder, with deps installed (pip install -r requirements.txt).
 """
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Flip this to True to also run the agent on the three sources and check its output.
 # It needs OPENAI_API_KEY set and will make real (small) API calls.
